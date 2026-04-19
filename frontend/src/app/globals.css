@@ -1,15 +1,26 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f4efe6;
-  --foreground: #1f2533;
-  --muted: #6f7685;
-  --surface: rgba(255, 255, 255, 0.72);
-  --surface-strong: #ffffff;
-  --border: rgba(31, 37, 51, 0.1);
-  --accent: #0f766e;
-  --accent-soft: rgba(15, 118, 110, 0.12);
-  --shadow: 0 24px 60px rgba(31, 37, 51, 0.08);
+  --background: #050a12;
+  --background-deep: #03070d;
+  --surface: rgba(11, 18, 30, 0.78);
+  --surface-strong: rgba(19, 29, 46, 0.92);
+  --surface-soft: rgba(255, 255, 255, 0.03);
+  --text-strong: #edf3ff;
+  --text-body: #c4d2ea;
+  --text-soft: #93a1bb;
+  --text-dim: #6d7992;
+  --border: rgba(170, 193, 227, 0.12);
+  --border-strong: rgba(170, 193, 227, 0.18);
+  --signal-cyan: #5ad6c3;
+  --signal-amber: #ffbc5c;
+  --signal-rose: #ff7989;
+  --signal-ink: #0d1524;
+  --shadow-strong: 0 30px 80px rgba(0, 0, 0, 0.35);
+  --shadow-soft: 0 18px 40px rgba(0, 0, 0, 0.2);
+  --hero-glow: radial-gradient(circle at top left, rgba(90, 214, 195, 0.16), transparent 28%);
+  --hero-glow-2: radial-gradient(circle at 80% 10%, rgba(255, 188, 92, 0.14), transparent 24%);
+  --hero-glow-3: radial-gradient(circle at 50% 100%, rgba(122, 149, 255, 0.1), transparent 34%);
 }
 
 * {
@@ -24,11 +35,39 @@ body {
   margin: 0;
   min-height: 100vh;
   background:
-    radial-gradient(circle at top left, rgba(15, 118, 110, 0.18), transparent 28%),
-    radial-gradient(circle at top right, rgba(245, 158, 11, 0.16), transparent 24%),
-    linear-gradient(180deg, #f7f2ea 0%, #eef3f6 100%);
-  color: var(--foreground);
+    var(--hero-glow),
+    var(--hero-glow-2),
+    var(--hero-glow-3),
+    linear-gradient(180deg, #08101b 0%, #050a12 45%, #04070d 100%);
+  color: var(--text-body);
   font-family: var(--font-body), sans-serif;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.95), transparent 92%);
+  pointer-events: none;
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.16;
+  background-image:
+    radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.4) 0.6px, transparent 0.7px),
+    radial-gradient(circle at 80% 45%, rgba(255, 255, 255, 0.26) 0.6px, transparent 0.8px),
+    radial-gradient(circle at 35% 75%, rgba(255, 255, 255, 0.22) 0.5px, transparent 0.8px);
+  background-size: 220px 220px;
 }
 
 a {
@@ -36,6 +75,110 @@ a {
   text-decoration: none;
 }
 
+button,
+input,
+textarea {
+  font: inherit;
+}
+
 ::selection {
-  background: rgba(15, 118, 110, 0.2);
+  background: rgba(90, 214, 195, 0.22);
+  color: var(--text-strong);
+}
+
+.panel {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 40%),
+    var(--surface);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(16px);
+}
+
+.panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.06), transparent 35%);
+  pointer-events: none;
+}
+
+.eyebrow {
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+
+.signal-ring {
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 0 0 8px rgba(90, 214, 195, 0.06),
+    0 18px 34px rgba(0, 0, 0, 0.24);
+}
+
+.text-balance {
+  text-wrap: balance;
+}
+
+.glass-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+
+.glass-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.glass-scroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.glass-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@keyframes pulse-soft {
+  0%,
+  100% {
+    opacity: 0.75;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.035);
+  }
+}
+
+@keyframes drift-up {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -6px, 0);
+  }
+}
+
+.pulse-soft {
+  animation: pulse-soft 5s ease-in-out infinite;
+}
+
+.drift-up {
+  animation: drift-up 7s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .pulse-soft,
+  .drift-up {
+    animation: none;
+  }
 }

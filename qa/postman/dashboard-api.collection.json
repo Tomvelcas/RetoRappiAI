@@ -1,0 +1,323 @@
+{
+  "info": {
+    "_postman_id": "5debb253-782c-4702-885c-2d0aa055c959",
+    "name": "AI Powered Dashboard API Smoke",
+    "description": "Smoke and contract checks for the analytics-first backend.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:8418"
+    },
+    {
+      "key": "selected_date",
+      "value": "2026-02-10"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/health",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "health"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('returns 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const payload = pm.response.json();",
+              "pm.test('returns ok status', function () {",
+              "  pm.expect(payload.status).to.eql('ok');",
+              "});",
+              "pm.test('includes baseline security headers', function () {",
+              "  pm.expect(pm.response.headers.get('X-Content-Type-Options')).to.eql('nosniff');",
+              "  pm.expect(pm.response.headers.get('X-Frame-Options')).to.eql('DENY');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Metrics Overview",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/metrics/overview?anomaly_limit=3",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "metrics",
+            "overview"
+          ],
+          "query": [
+            {
+              "key": "anomaly_limit",
+              "value": "3"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.response.to.have.status(200);",
+              "const payload = pm.response.json();",
+              "pm.test('returns dashboard KPIs', function () {",
+              "  pm.expect(payload.kpis.length).to.be.above(0);",
+              "});",
+              "pm.test('returns top anomalies and quality metadata', function () {",
+              "  pm.expect(payload.top_anomalies.length).to.be.above(0);",
+              "  pm.expect(payload.quality.selected_coverage_ratio).to.be.above(0);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Metrics Daily Selected Range",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/metrics/daily?start_date={{selected_date}}&end_date={{selected_date}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "metrics",
+            "daily"
+          ],
+          "query": [
+            {
+              "key": "start_date",
+              "value": "{{selected_date}}"
+            },
+            {
+              "key": "end_date",
+              "value": "{{selected_date}}"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.response.to.have.status(200);",
+              "const payload = pm.response.json();",
+              "pm.test('returns a single day point', function () {",
+              "  pm.expect(payload.points.length).to.eql(1);",
+              "  pm.expect(payload.points[0].date).to.eql(pm.collectionVariables.get('selected_date'));",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Coverage Extremes",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/metrics/coverage-extremes?limit=2",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "metrics",
+            "coverage-extremes"
+          ],
+          "query": [
+            {
+              "key": "limit",
+              "value": "2"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.response.to.have.status(200);",
+              "const payload = pm.response.json();",
+              "pm.test('returns low and high coverage tables', function () {",
+              "  pm.expect(payload.lowest_coverage_days.length).to.eql(2);",
+              "  pm.expect(payload.highest_coverage_days.length).to.eql(2);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Day Briefing",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/metrics/day-briefing?target_date={{selected_date}}&anomaly_limit=2",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "metrics",
+            "day-briefing"
+          ],
+          "query": [
+            {
+              "key": "target_date",
+              "value": "{{selected_date}}"
+            },
+            {
+              "key": "anomaly_limit",
+              "value": "2"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.response.to.have.status(200);",
+              "const payload = pm.response.json();",
+              "pm.test('returns a narrative briefing for the selected day', function () {",
+              "  pm.expect(payload.briefing.target_date).to.eql(pm.collectionVariables.get('selected_date'));",
+              "  pm.expect(payload.briefing.summary).to.be.a('string');",
+              "  pm.expect(payload.briefing.suggested_questions.length).to.be.above(0);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Chat Intraday Pattern",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"question\": \"¿Qué horas suelen ser más altas?\",\n  \"use_llm\": false,\n  \"allow_hypotheses\": false\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/chat/query",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "chat",
+            "query"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.response.to.have.status(200);",
+              "const payload = pm.response.json();",
+              "pm.test('routes to intraday intent', function () {",
+              "  pm.expect(payload.intent).to.eql('intraday_pattern');",
+              "  pm.expect(payload.supported).to.eql(true);",
+              "  pm.expect(payload.answer_mode).to.eql('deterministic');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Chat Unsupported Store-Level Request",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"question\": \"Which store had the worst availability?\",\n  \"use_llm\": false,\n  \"allow_hypotheses\": false\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/chat/query",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "chat",
+            "query"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.response.to.have.status(200);",
+              "const payload = pm.response.json();",
+              "pm.test('rejects unsupported store-level requests cleanly', function () {",
+              "  pm.expect(payload.intent).to.eql('unsupported_request');",
+              "  pm.expect(payload.supported).to.eql(false);",
+              "  pm.expect(payload.warnings.length).to.be.above(0);",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

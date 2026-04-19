@@ -78,3 +78,15 @@
 - **Por qué**:
   - la prueba evalúa criterio,
   - una capacidad no soportada daña credibilidad más que una omisión explícita.
+
+## D-009: Usar vocabulario neutral en backend y dashboard
+
+- **Estado**: Aprobada
+- **Decisión**: Retirar labels placeholder que implican disponibilidad por tienda y reemplazarlos por términos neutrales del dato.
+- **Por qué**:
+  - `Availability Rate`, `Affected Stores` e `Incident Hours` no están validados por el dataset actual,
+  - el backend ya debe nacer alineado a la realidad observada,
+  - evita contaminar frontend, tests y narrativa de demo.
+- **Alternativa descartada**: mantener nomenclatura “bonita” aunque sea semánticamente débil
+- **Motivo del descarte**:
+  - aumenta riesgo de sobreprometer capacidades inexistentes.

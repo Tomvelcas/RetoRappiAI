@@ -1,21 +1,24 @@
 import type { Metadata } from "next";
-import { Manrope, Space_Grotesk } from "next/font/google";
+import { Bricolage_Grotesque, IBM_Plex_Sans } from "next/font/google";
+
+import { SiteNav } from "@/components/site-nav";
 
 import "./globals.css";
 
-const headingFont = Space_Grotesk({
+const headingFont = Bricolage_Grotesque({
   subsets: ["latin"],
   variable: "--font-heading",
 });
 
-const bodyFont = Manrope({
+const bodyFont = IBM_Plex_Sans({
   subsets: ["latin"],
+  weight: ["400", "500", "600"],
   variable: "--font-body",
 });
 
 export const metadata: Metadata = {
-  title: "AI-Powered Dashboard",
-  description: "Analytics-first dashboard scaffold for store availability insights.",
+  title: "Signal Atlas",
+  description: "Visual control room for historical availability signals and grounded chat.",
 };
 
 export default function RootLayout({
@@ -26,7 +29,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${headingFont.variable} ${bodyFont.variable}`}>
-        {children}
+        <div className="relative min-h-screen">
+          <SiteNav />
+          <div className="relative z-10">{children}</div>
+        </div>
       </body>
     </html>
   );

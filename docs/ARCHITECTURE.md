@@ -48,21 +48,24 @@ ai-powered-dashboard/
    Los CSV originales se conservan intactos en `data/raw/`.
 
 2. **Notebook layer**
-   Los notebooks validan esquema, parsean timestamps, identifican duplicados y convierten el formato ancho a una tabla larga.
+   Los notebooks `01`, `02` y `03` validan esquema, parsean timestamps, identifican duplicados, convierten el formato ancho a tabla larga y aterrizan qué producto sí tiene sentido construir.
+   El script `scripts/process_availability_data.py` materializa esa lógica en una ruta reproducible para `data/processed/`.
 
 3. **Processed layer**
-   Las salidas objetivo de `data/processed/` deben ser artefactos estables para aplicación y demo, por ejemplo:
+   Las salidas actuales de `data/processed/` ya son el contrato base para aplicación y demo:
    - `availability_long_canonical.csv`: una fila por timestamp observado
    - `availability_window_metadata.csv`: una fila por ventana exportada
-   - `availability_hourly.csv`: agregados por hora
-   - `availability_daily.csv`: agregados por día
-   - `quality_report.json`: duplicados, truncamientos, gaps, cobertura
+   - `availability_hourly.csv`: agregados por hora con baseline y z-score por hora
+   - `availability_daily.csv`: agregados por día con cobertura observada
+   - `availability_quality_report.json`: duplicados, truncamientos, gaps y cobertura global
    - `availability_hourly_anomalies.csv`: horas candidatas a anomalía
+   - `availability_step_changes.csv`: saltos relevantes a 10 segundos
+   - `availability_overview_summary.json`: resumen ligero útil para inspección o demo
 
    En esta iteración se materializan como CSV/JSON para maximizar portabilidad local y simplicidad de ejecución. Si más adelante se justifica, pueden migrarse a Parquet sin cambiar el contrato analítico.
 
 4. **Backend**
-   El backend nunca debería leer directamente cientos de CSV crudos en tiempo de request. Debe leer tablas procesadas y producir payloads acotados.
+   El backend nunca debería leer directamente cientos de CSV crudos en tiempo de request. Debe leer tablas procesadas, cachearlas en memoria si hace falta y producir payloads acotados.
 
 5. **Frontend**
    El frontend consume endpoints ya preparados para visualización y para respuesta semántica.
@@ -111,7 +114,72 @@ ai-powered-dashboard/
 - manejo de errores,
 - utilidades de parsing y trazabilidad.
 
-## 5. Componentes del frontend
+## 5. Contrato inicial del backend
+
+El backend MVP ya puede implementarse con suficiente claridad a partir de `data/processed/`.
+
+### Endpoints mínimos
+
+- `GET /health`
+- `GET /api/v1/metrics/overview`
+- `POST /api/v1/chat/query`
+
+### `GET /api/v1/metrics/overview`
+
+Debe leer como mínimo:
+
+- `availability_daily.csv`
+- `availability_hourly.csv`
+- `availability_quality_report.json`
+- `availability_hourly_anomalies.csv`
+
+Debe devolver un payload centrado en producto y no en supuestos por tienda:
+
+- rango observado,
+- KPIs del período,
+- tendencia diaria,
+- resumen intradiario,
+- resumen de calidad del dato,
+- highlights de anomalías con advertencias.
+
+Vocabulario recomendado:
+
+- `nivel medio de señal`,
+- `cobertura`,
+- `baseline horario`,
+- `desviación`,
+- `anomalía`,
+- `confidence flag`.
+
+Vocabulario a retirar del scaffold actual:
+
+- `Availability Rate`,
+- `Affected Stores`,
+- `Incident Hours`.
+
+### `POST /api/v1/chat/query`
+
+Debe seguir este patrón:
+
+1. clasificar intención,
+2. validar si la intención está soportada,
+3. ejecutar consulta determinística sobre `processed/`,
+4. construir objeto de evidencia compacto,
+5. responder con template o LLM acotado.
+
+Intenciones iniciales recomendadas:
+
+- `trend_summary`
+- `period_comparison`
+- `intraday_pattern`
+- `anomaly_review`
+- `data_quality_status`
+- `metric_definition`
+- `unsupported_request`
+
+La primera versión no necesita embeddings ni vector DB.
+
+## 6. Componentes del frontend
 
 ### Dashboard
 
@@ -136,7 +204,7 @@ Debe pivotar a visualización agregada temporal, no por tienda:
 - la UI debe ser componible por secciones,
 - el cliente API debe centralizar contratos con backend.
 
-## 6. Estrategia del chatbot
+## 7. Estrategia del chatbot
 
 El chatbot recomendado no es un RAG puro. Es un **semantic interface sobre analytics determinística**.
 
@@ -154,19 +222,21 @@ El chatbot recomendado no es un RAG puro. Es un **semantic interface sobre analy
 
 - resumen de tendencia,
 - comparación de períodos,
-- explicación de un pico o caída,
+- patrón intradiario,
+- explicación de un pico o caída con contexto de baseline,
 - preguntas de calidad del dato,
 - definición de la métrica,
 - consulta no soportada.
 
-## 7. Cómo se evita acoplar el chatbot a supuestos no soportados por el dato
+## 8. Cómo se evita acoplar el chatbot a supuestos no soportados por el dato
 
 - El chat no tendrá herramientas para consultar tiendas porque el dataset no muestra esa dimensión.
 - El catálogo de intenciones se define desde `DATA_DICTIONARY.md`, no desde supuestos de negocio.
 - Las respuestas deben incluir una advertencia cuando la pregunta pida granularidad no existente.
 - La evidencia enviada al modelo debe contener solo agregados y metadatos validados.
+- La capa de chat debe incluir `coverage` o `confidence flags` cuando la evidencia tenga soporte parcial.
 
-## 8. Estrategia de Docker
+## 9. Estrategia de Docker
 
 - `docker-compose.yml` levanta frontend y backend para demo local.
 - El backend puede leer processed data desde volumen montado.
@@ -178,7 +248,7 @@ Recomendación:
 - mantener la primera versión sin servicios extra,
 - agregar persistencia adicional solo si aparece necesidad real.
 
-## 9. Estrategia de CI/CD
+## 10. Estrategia de CI/CD
 
 ### Base obligatoria
 
@@ -197,19 +267,21 @@ Decisión recomendada:
 - no bloquear el MVP por SonarCloud,
 - sí dejar el pipeline preparado para integrarlo después si conviene.
 
-## 10. Decisiones de modularidad
+## 11. Decisiones de modularidad
 
 - Separar profiling del dato de la app runtime.
 - Separar analítica determinística de la capa conversacional.
 - Diseñar endpoints centrados en casos de uso, no en archivos.
 - Mantener el dashboard extensible por secciones sin inventar nuevas dimensiones.
 - Definir un contrato explícito de evidencia para el chat.
+- Desacoplar nomenclatura del backend de cualquier semántica no validada por el dataset.
 
-## 11. Riesgos arquitectónicos
+## 12. Riesgos arquitectónicos
 
 - Leer raw files en runtime degradaría claridad y performance.
 - Introducir embeddings o vector DB para esta serie temporal agregada aumentaría complejidad sin mejorar precisión.
 - Modelar “tiendas” en el dominio sin evidencia contaminaría todo el sistema.
+- Mantener payloads placeholder con semántica de tienda contaminaría frontend, tests y narrativa de demo.
 
 Conclusión:
 

@@ -4,13 +4,15 @@ WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+ENV PIP_NO_CACHE_DIR=1
 
-COPY pyproject.toml ./
-COPY README.md ./
+COPY requirements.txt ./
+
+RUN python -m pip install -r requirements.txt
+
 COPY app ./app
 
-RUN pip install --upgrade pip && pip install -e .
+EXPOSE 8418
 
-EXPOSE 8000
-
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${APP_PORT:-8418} --reload"]

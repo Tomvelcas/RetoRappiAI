@@ -3,15 +3,18 @@ services:
     build:
       context: ./backend
     ports:
-      - "${BACKEND_PORT:-8000}:8000"
+      - "${BACKEND_PORT:-8418}:${APP_PORT:-8418}"
     environment:
       APP_NAME: ${APP_NAME:-AI Powered Dashboard API}
       APP_ENV: ${APP_ENV:-local}
       APP_HOST: ${APP_HOST:-0.0.0.0}
-      APP_PORT: ${APP_PORT:-8000}
-      BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS:-http://localhost:3000}
+      APP_PORT: ${APP_PORT:-8418}
+      PROCESSED_DATA_DIR: ${PROCESSED_DATA_DIR:-/app/data/processed}
+      BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS:-http://localhost:3418}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1,backend,testserver}
     volumes:
       - ./backend:/app
+      - ./data:/app/data:ro
 
   frontend:
     build:
@@ -19,11 +22,11 @@ services:
     depends_on:
       - backend
     ports:
-      - "${FRONTEND_PORT:-3000}:3000"
+      - "${FRONTEND_PORT:-3418}:${FRONTEND_PORT:-3418}"
     environment:
-      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+      FRONTEND_PORT: ${FRONTEND_PORT:-3418}
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8418}
     volumes:
       - ./frontend:/app
       - /app/node_modules
       - /app/.next
-

@@ -9,12 +9,15 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .coverage
+coverage.xml
+pytest.xml
 htmlcov/
 
 node_modules/
 .next/
 out/
 coverage/
+newman-report.xml
 
 .ipynb_checkpoints/
 

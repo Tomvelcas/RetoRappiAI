@@ -23,6 +23,7 @@ Leer en este orden:
 - Mantener la verdad numérica en la capa analítica.
 - Usar el LLM solo para interpretación y explicación.
 - Optimizar trazabilidad, costo de tokens y calidad técnica.
+- No usar vocabulario placeholder no soportado por el dataset.
 
 ## Principios del proyecto
 
@@ -39,7 +40,13 @@ Leer en este orden:
 - `notebooks/`: profiling y sanitización
 - `backend/`: APIs y lógica analítica
 - `frontend/`: dashboard y chat UI
+- `scripts/process_availability_data.py`: pipeline reproducible raw -> processed
 - `docker compose up --build`
 - `make test`
 - `make lint`
 - `make build`
+
+## Estado actual
+
+- `data/processed/` ya existe y es la fuente correcta para implementar el backend MVP.
+- El siguiente paso recomendado es reemplazar los mocks del backend por analytics reales sobre `daily`, `hourly`, `quality` y `anomalies`.

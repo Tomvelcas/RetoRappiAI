@@ -65,7 +65,8 @@ Conclusión:
 
 - `trend_summary`
 - `period_comparison`
-- `anomaly_question`
+- `intraday_pattern`
+- `anomaly_review`
 - `metric_definition`
 - `data_quality_question`
 - `unsupported_request`
@@ -78,19 +79,25 @@ Conclusión:
   "time_window": "2026-02-10 06:00 - 12:00",
   "comparison_window": "2026-02-09 06:00 - 12:00",
   "metrics": {
-    "avg_value": 123.0,
-    "max_value": 150.0,
-    "pct_change": 4.2
+    "mean_signal": 3209285.93,
+    "coverage_ratio": 0.7449,
+    "pct_change_vs_previous_period": 4.2
   },
-  "warnings": ["Ventanas truncadas excluidas"],
-  "source_tables": ["availability_long", "availability_hourly"]
+  "warnings": ["Cobertura parcial del período consultado"],
+  "source_tables": ["availability_daily.csv", "availability_quality_report.json"]
 }
 ```
+
+Recomendación adicional:
+
+- toda evidencia enviada al LLM debe incluir `coverage_flag` o advertencias de confianza cuando la cobertura sea parcial,
+- toda respuesta sobre anomalías debe incluir también `n_points` o una traducción compacta de ese soporte.
 
 ## 6. Estrategias para economizar tokens
 
 - No enviar series completas al modelo.
 - Precalcular agregados útiles en `processed/`.
+- Priorizar `availability_daily.csv`, `availability_hourly.csv` y `availability_quality_report.json` como fuentes de evidencia compacta.
 - Enviar solo evidencia compacta y acotada.
 - Mantener un catálogo cerrado de intents.
 - Resolver preguntas simples con templates sin llamar al LLM.
@@ -107,6 +114,7 @@ Conclusión:
 - Se debe restringir el chat a una taxonomía conocida de preguntas.
 - Los números citados por el LLM deben estar presentes en el objeto de evidencia.
 - Si hay ambigüedad en la métrica, el sistema debe decirlo.
+- Si la cobertura del rango es baja o parcial, la respuesta debe bajar confianza en lugar de sonar categórica.
 
 ## 8. Guardrails del chatbot
 
@@ -116,6 +124,7 @@ Conclusión:
 - No inventar métricas nuevas.
 - No responder “con seguridad” cuando solo existe hipótesis.
 - Preferir “no soportado por el dataset” sobre una respuesta especulativa.
+- No usar labels como `Availability Rate` o `Affected Stores` si el backend no puede justificarlos con el dato actual.
 
 ## 9. Cómo demostrar dominio real de AI engineering en la demo
 
@@ -128,6 +137,7 @@ La fortaleza no está en decir “usé muchos modelos”. Está en mostrar contr
 - Se separó verdad numérica de explicación semántica.
 - Se diseñaron límites explícitos para el chat.
 - Se pensó en costo de tokens y trazabilidad.
+- Se incluyeron `confidence flags` y advertencias cuando la cobertura o el soporte de puntos es bajo.
 - Se dejó CI y tests básicos para sostener la solución.
 
 ### Mensajes que conviene defender
@@ -135,6 +145,7 @@ La fortaleza no está en decir “usé muchos modelos”. Está en mostrar contr
 - “No usé AI para inventar analítica; la usé para hacer la interfaz sobre analítica confiable.”
 - “Elegí una arquitectura sobria porque el dataset no justifica complejidad extra.”
 - “La solución demuestra criterio, no solo velocidad de prototipado.”
+- “Mi bot sabe responder y también sabe cuándo decir que el dataset no soporta la pregunta.”
 
 ## 10. Uso impecable de Codex y tooling agentic
 

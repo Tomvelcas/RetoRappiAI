@@ -1,0 +1,160 @@
+"""Chat endpoint tests."""
+
+from __future__ import annotations
+
+from fastapi.testclient import TestClient
+
+from app.chat.llm_client import LLMConfigurationError
+from app.schemas.chat import ChatQueryResponse
+
+
+def test_chat_rejects_store_level_question(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/chat/query",
+        json={"question": "Which store had the worst availability?"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+
+    assert payload["intent"] == "unsupported_request"
+    assert payload["supported"] is False
+    assert payload["warnings"]
+    assert payload["answer_mode"] == "deterministic"
+    assert payload["llm_used"] is False
+
+
+def test_chat_supports_intraday_pattern_question(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/chat/query",
+        json={"question": "¿Qué horas suelen ser más altas?"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+
+    assert payload["intent"] == "intraday_pattern"
+    assert payload["supported"] is True
+    assert payload["evidence"]
+    assert "availability_hourly.csv" in payload["source_tables"]
+    assert payload["answer_mode"] == "deterministic"
+    assert payload["follow_up_questions"]
+
+
+def test_chat_supports_quality_question(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/chat/query",
+        json={"question": "How complete is the dataset between 2026-02-10 and 2026-02-10?"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+
+    assert payload["intent"] == "data_quality_status"
+    assert payload["supported"] is True
+    assert payload["time_window"]["effective_start"] == "2026-02-10"
+    assert payload["time_window"]["effective_end"] == "2026-02-10"
+
+
+def test_chat_supports_coverage_extremes_question(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/chat/query",
+        json={"question": "¿Qué días tuvieron la menor cobertura?"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+
+    assert payload["intent"] == "coverage_extremes"
+    assert payload["supported"] is True
+    assert payload["evidence"]
+    assert payload["source_tables"] == ["availability_daily.csv"]
+    assert payload["follow_up_questions"]
+
+
+def test_chat_supports_day_briefing_question(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/chat/query",
+        json={"question": "¿Qué pasó el 2026-02-10?"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+
+    assert payload["intent"] == "day_briefing"
+    assert payload["supported"] is True
+    assert payload["source_tables"] == [
+        "availability_daily.csv",
+        "availability_hourly.csv",
+        "availability_hourly_anomalies.csv",
+    ]
+    assert payload["follow_up_questions"]
+    assert payload["answer"]
+
+
+def test_chat_falls_back_when_llm_is_requested_but_disabled(
+    client: TestClient,
+    monkeypatch,
+) -> None:
+    def _raise_disabled(*args, **kwargs) -> None:
+        raise LLMConfigurationError("Optional LLM support is disabled in backend configuration.")
+
+    monkeypatch.setattr("app.chat.enrichment.generate_openai_enrichment", _raise_disabled)
+
+    response = client.post(
+        "/api/v1/chat/query",
+        json={
+            "question": "¿Qué días tuvieron la menor cobertura y por qué podrían verse así?",
+            "use_llm": True,
+            "allow_hypotheses": True,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+
+    assert payload["supported"] is True
+    assert payload["answer_mode"] == "deterministic_fallback"
+    assert payload["llm_used"] is False
+    assert payload["warnings"]
+
+
+def test_chat_can_return_llm_enhanced_payload(
+    client: TestClient,
+    monkeypatch,
+) -> None:
+    def _fake_enrich(payload, grounded_response: ChatQueryResponse) -> ChatQueryResponse:
+        return grounded_response.model_copy(
+            update={
+                "answer": "Respuesta enriquecida con redacción semántica controlada.",
+                "answer_mode": "llm_enhanced",
+                "llm_used": True,
+                "llm_provider": "openai",
+                "llm_model": "gpt-5-mini",
+                "hypotheses": ["Podría influir una ventana incompleta o latencia operativa."],
+                "follow_up_questions": ["¿Quiere comparar ese día contra el baseline diario?"],
+                "external_context_used": True,
+            }
+        )
+
+    monkeypatch.setattr("app.services.chat_service.enrich_chat_response", _fake_enrich)
+
+    response = client.post(
+        "/api/v1/chat/query",
+        json={
+            "question": "¿Qué días tuvieron la menor cobertura y por qué podrían verse así?",
+            "use_llm": True,
+            "allow_hypotheses": True,
+            "external_context": "Hubo una promoción fuerte y notas de latencia ese día.",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+
+    assert payload["answer_mode"] == "llm_enhanced"
+    assert payload["llm_used"] is True
+    assert payload["llm_model"] == "gpt-5-mini"
+    assert payload["hypotheses"]
+    assert payload["follow_up_questions"]
+    assert payload["external_context_used"] is True

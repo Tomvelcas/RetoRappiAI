@@ -7,9 +7,20 @@ on:
       - master
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
-  test-and-build:
+  quality-and-build:
     runs-on: ubuntu-latest
+
+    env:
+      APP_ENV: ci
+      APP_PORT: 8418
+      PROCESSED_DATA_DIR: ${{ github.workspace }}/data/processed
+      BACKEND_CORS_ORIGINS: http://localhost:3418
+      ALLOWED_HOSTS: localhost,127.0.0.1,testserver
+      NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:8418
 
     steps:
       - name: Check out repository
@@ -35,9 +46,9 @@ jobs:
         working-directory: backend
         run: ruff check .
 
-      - name: Run backend tests
+      - name: Run backend tests with coverage
         working-directory: backend
-        run: pytest
+        run: pytest --cov=app --cov-report=term-missing --cov-report=xml --junitxml=pytest.xml
 
       - name: Install frontend dependencies
         working-directory: frontend
@@ -50,5 +61,44 @@ jobs:
       - name: Build frontend
         working-directory: frontend
         env:
-          NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+          NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:8418
         run: npm run build
+
+      - name: Install Newman
+        run: npm install --global newman
+
+      - name: Start backend for API smoke tests
+        working-directory: backend
+        run: |
+          nohup python -m uvicorn app.main:app --host 127.0.0.1 --port 8418 > /tmp/backend.log 2>&1 &
+          echo $! > /tmp/backend.pid
+
+      - name: Wait for backend readiness
+        run: |
+          for attempt in {1..20}; do
+            if curl --fail --silent http://127.0.0.1:8418/health > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/backend.log
+          exit 1
+
+      - name: Run Newman API smoke tests
+        run: |
+          newman run qa/postman/dashboard-api.collection.json \
+            --env-var base_url=http://127.0.0.1:8418 \
+            --reporters cli,junit \
+            --reporter-junit-export newman-report.xml
+
+      - name: Upload quality artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-artifacts
+          path: |
+            backend/coverage.xml
+            backend/pytest.xml
+            newman-report.xml
+            /tmp/backend.log
+          if-no-files-found: warn

@@ -4,6 +4,17 @@
 
 Entregar en 3 días una solución demostrable, técnicamente sólida y coherente con la granularidad real del dataset.
 
+## Estado actual
+
+La fase de notebooks y procesamiento ya dejó una base suficiente para empezar backend:
+
+- notebooks cerrados con narrativa, validaciones y traducción a producto,
+- `data/processed/` materializado y listo para consumo,
+- preguntas soportadas y no soportadas ya acotadas,
+- contrato inicial de dashboard y chat ya definido.
+
+En la práctica, el plan entra ahora en **Día 2**.
+
 ## Día 1: Entender y procesar el dato
 
 ### Bloques de trabajo
@@ -24,18 +35,19 @@ Entregar en 3 días una solución demostrable, técnicamente sólida y coherente
 
 ### Bloques de trabajo
 
-1. Implementar lector de processed data.
-2. Construir endpoints de dashboard agregado.
-3. Construir router inicial del chat por intención.
-4. Implementar respuesta grounded con evidencia.
-5. Agregar tests de lógica analítica y API.
+1. Implementar un lector/repositorio de `data/processed/`.
+2. Reemplazar el vocabulario placeholder del backend actual por nomenclatura neutral del dataset.
+3. Construir `GET /api/v1/metrics/overview` con datos reales de `daily`, `hourly`, `quality` y `anomalies`.
+4. Construir `POST /api/v1/chat/query` con router inicial por intención.
+5. Implementar respuesta grounded con evidencia compacta y advertencias de cobertura.
+6. Agregar tests de lógica analítica y API.
 
 ### Hitos verificables
 
-- endpoint de overview confiable,
-- endpoint de serie temporal,
-- endpoint de calidad del dato,
+- endpoint de overview confiable y sin semántica ficticia por tienda,
 - endpoint de chat con fallback “no soportado”,
+- respuestas con evidencia y `warnings`,
+- nomenclatura del backend alineada a `señal`, `cobertura`, `baseline` y `anomalía`,
 - tests pasando.
 
 ## Día 3: Frontend, demo y calidad
@@ -74,6 +86,15 @@ Si el procesamiento no está bien, todo lo demás se vuelve frágil.
 - tabla procesada larga,
 - métricas agregadas útiles,
 - contrato de evidencia del chat.
+
+Eso ya está suficientemente cerrado.
+
+Lo siguiente a construir primero es:
+
+- repositorio de acceso a `processed/`,
+- servicio de `overview`,
+- servicio de `chat` con intents soportadas,
+- tests de contrato del backend.
 
 ## Qué dejar fuera si falta tiempo
 

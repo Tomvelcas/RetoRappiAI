@@ -31,9 +31,9 @@ cp .env.example .env
 docker compose up --build
 ```
 
-- Frontend: `http://localhost:3000`
-- Backend: `http://localhost:8000`
-- API docs: `http://localhost:8000/docs`
+- Frontend: `http://localhost:3418`
+- Backend: `http://localhost:8418`
+- API docs: `http://localhost:8418/docs`
 
 ### Option 2: Native Development
 
@@ -50,14 +50,19 @@ make frontend-dev
 
 Run `make backend-dev` and `make frontend-dev` in separate terminals.
 
+Important: the backend reads environment variables from `ai-powered-dashboard/.env`. A `.env`
+file placed outside the repository root will not be picked up by the application settings.
+
 ## Common Commands
 
 ```bash
 make install        # Install backend and frontend dependencies
 make test           # Run backend tests
+make coverage       # Run backend tests with coverage output
 make lint           # Run backend lint checks
 make typecheck      # Run frontend TypeScript checks
 make build          # Build the frontend
+make api-smoke      # Run Newman smoke tests against a running backend
 make docker-up      # Start both services with Docker Compose
 make docker-down    # Stop Docker Compose services
 ```
@@ -69,7 +74,16 @@ make docker-down    # Stop Docker Compose services
 - Tailwind CSS styling and a small API client layer
 - Placeholder notebooks and documentation
 - Dockerfiles and `docker-compose.yml`
-- Practical CI for install, lint, tests, type-checking, and build
+- Practical CI for install, lint, coverage, API smoke tests, type-checking, and build
+- Security automation via dependency audits, CodeQL, Dependency Review, and Dependabot
+
+## Quality and Security
+
+- Main CI workflow: `.github/workflows/ci.yml`
+- Security workflow: `.github/workflows/security.yml`
+- Static analysis: `.github/workflows/codeql.yml`
+- Dependency review on PRs: `.github/workflows/dependency-review.yml`
+- Additional guidance: [docs/QUALITY_AND_SECURITY.md](docs/QUALITY_AND_SECURITY.md)
 
 ## Next Development Steps
 

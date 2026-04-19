@@ -1,94 +1,146 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
+import { useEffect, useState, useTransition } from "react";
 
+import type { DayBriefing } from "@/lib/api";
 import { queryChat } from "@/lib/api";
+import { briefingQuestion, coverageChip, modeLabel } from "@/lib/format";
 
-const suggestedPrompts = [
-  "Which trend should an operator investigate first?",
-  "Summarize the main availability signal in plain English.",
-];
+type ChatPanelProps = {
+  briefing: DayBriefing;
+};
 
-export function ChatPanel() {
-  const [question, setQuestion] = useState(suggestedPrompts[0]);
-  const [answer, setAnswer] = useState<string>(
-    "Ask a question to exercise the mocked grounded response endpoint."
-  );
-  const [loading, setLoading] = useState(false);
+export function ChatPanel({ briefing }: ChatPanelProps) {
+  const [draft, setDraft] = useState("");
+  const [answer, setAnswer] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [meta, setMeta] = useState<{
+    mode: string;
+    warnings: string[];
+  } | null>(null);
+  const [, startTransition] = useTransition();
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setLoading(true);
+  useEffect(() => {
+    setDraft(briefingQuestion(briefing));
+    setAnswer("");
+    setMeta(null);
+  }, [briefing]);
+
+  async function sendQuestion(question: string) {
+    const trimmed = question.trim();
+    if (!trimmed) {
+      return;
+    }
+
+    setIsSubmitting(true);
 
     try {
-      const response = await queryChat(question);
-      setAnswer(response.answer);
+      const response = await queryChat({ question: trimmed });
+
+      startTransition(() => {
+        setDraft(trimmed);
+        setAnswer(response.answer);
+        setMeta({
+          mode: modeLabel(response.answer_mode),
+          warnings: response.warnings,
+        });
+      });
     } catch {
-      setAnswer("The backend is not reachable yet. Start the API to test the chat contract.");
+      startTransition(() => {
+        setAnswer("The quick copilot could not reach the backend.");
+        setMeta({
+          mode: "offline",
+          warnings: [],
+        });
+      });
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   }
 
   return (
-    <section className="rounded-[28px] border border-[color:var(--border)] bg-[color:var(--surface)] p-6 shadow-[var(--shadow)] backdrop-blur">
-      <div className="flex items-center justify-between">
+    <div className="rounded-[28px] border border-[color:var(--border)] bg-[color:rgba(255,255,255,0.03)] p-5">
+      <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
-            Chat Placeholder
+          <p className="eyebrow">Ask this day</p>
+          <p className="mt-2 max-w-sm text-sm leading-6 text-[color:var(--text-soft)]">
+            Keep the question tight and the answer will stay grounded.
           </p>
-          <h2
-            className="mt-2 text-2xl font-semibold"
-            style={{ fontFamily: "var(--font-heading), sans-serif" }}
-          >
-            Grounded assistant panel
-          </h2>
         </div>
-        <span className="rounded-full bg-[color:var(--accent-soft)] px-3 py-1 text-xs font-semibold text-[color:var(--accent)]">
-          Mocked
-        </span>
-      </div>
-
-      <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
-        <label className="block">
-          <span className="mb-2 block text-sm font-medium text-[color:var(--muted)]">
-            Prompt
-          </span>
-          <textarea
-            className="min-h-28 w-full rounded-3xl border border-[color:var(--border)] bg-white px-4 py-3 text-sm text-[color:var(--foreground)] outline-none transition focus:border-teal-500"
-            value={question}
-            onChange={(event) => setQuestion(event.target.value)}
-          />
-        </label>
-
-        <div className="flex flex-wrap gap-2">
-          {suggestedPrompts.map((prompt) => (
-            <button
-              key={prompt}
-              className="rounded-full border border-[color:var(--border)] bg-white px-3 py-2 text-xs font-medium text-[color:var(--muted)] transition hover:border-teal-400 hover:text-teal-700"
-              onClick={() => setQuestion(prompt)}
-              type="button"
-            >
-              {prompt}
-            </button>
-          ))}
-        </div>
-
-        <button
-          className="inline-flex items-center rounded-full bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={loading}
-          type="submit"
+        <Link
+          className="rounded-full border border-[color:var(--border)] px-3 py-2 text-xs text-[color:var(--text-soft)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-strong)]"
+          href={`/chat?question=${encodeURIComponent(draft || briefingQuestion(briefing))}`}
         >
-          {loading ? "Querying..." : "Send to backend"}
-        </button>
-      </form>
-
-      <div className="mt-6 rounded-3xl border border-[color:var(--border)] bg-white/80 p-4">
-        <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
-          Response
-        </p>
-        <p className="mt-3 text-sm leading-6 text-[color:var(--foreground)]">{answer}</p>
+          open copilot
+        </Link>
       </div>
-    </section>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        {[briefingQuestion(briefing), ...briefing.suggested_questions.slice(0, 2)].map((prompt) => (
+          <button
+            key={prompt}
+            className="rounded-full border border-[color:var(--border)] px-3 py-2 text-xs text-[color:var(--text-soft)] transition hover:border-[color:rgba(90,214,195,0.35)] hover:text-[color:var(--text-strong)]"
+            onClick={() => {
+              setDraft(prompt);
+              void sendQuestion(prompt);
+            }}
+            type="button"
+          >
+            {prompt}
+          </button>
+        ))}
+      </div>
+
+      <label className="mt-4 block">
+        <textarea
+          className="glass-scroll min-h-28 w-full rounded-[26px] border border-[color:var(--border)] bg-[color:rgba(5,10,18,0.68)] px-4 py-3 text-sm leading-6 text-[color:var(--text-strong)] outline-none transition placeholder:text-[color:var(--text-dim)] focus:border-[color:rgba(90,214,195,0.35)]"
+          onChange={(event) => setDraft(event.target.value)}
+          placeholder="Ask about this day"
+          value={draft}
+        />
+      </label>
+
+      <div className="mt-4 flex items-center justify-between gap-3">
+        <button
+          className="rounded-full bg-[color:var(--text-strong)] px-4 py-3 text-sm font-medium text-[color:var(--signal-ink)] transition hover:opacity-92 disabled:cursor-not-allowed disabled:opacity-55"
+          disabled={isSubmitting || !draft.trim()}
+          onClick={() => void sendQuestion(draft)}
+          type="button"
+        >
+          {isSubmitting ? "thinking…" : "ask"}
+        </button>
+
+        {meta ? (
+          <span className="rounded-full border border-[color:var(--border)] px-3 py-2 text-xs text-[color:var(--text-soft)]">
+            {meta.mode}
+          </span>
+        ) : null}
+      </div>
+
+      <div className="mt-4 rounded-[24px] border border-[color:var(--border)] bg-[color:rgba(255,255,255,0.02)] p-4">
+        {answer ? (
+          <>
+            <p className="text-sm leading-7 text-[color:var(--text-strong)]">{answer}</p>
+            {meta?.warnings.length ? (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {meta.warnings.map((warning) => (
+                  <span
+                    key={warning}
+                    className={`rounded-full border px-3 py-1 text-[11px] ${coverageChip(briefing.coverage_flag)}`}
+                  >
+                    {warning}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+          </>
+        ) : (
+          <p className="text-sm leading-6 text-[color:var(--text-soft)]">
+            Ask for a quick read, a comparison, or a plain-language summary.
+          </p>
+        )}
+      </div>
+    </div>
   );
 }

@@ -3,11 +3,75 @@
 from fastapi.testclient import TestClient
 
 
-def test_metrics_overview_returns_placeholder_data(client: TestClient) -> None:
+def test_metrics_overview_returns_real_analytics_payload(client: TestClient) -> None:
     response = client.get("/api/v1/metrics/overview")
 
     assert response.status_code == 200
     payload = response.json()
-    assert "kpis" in payload
-    assert len(payload["kpis"]) == 3
-    assert payload["trend"][0]["availability_rate"] > 0
+
+    assert payload["kpis"]
+    assert payload["trend"]
+    assert payload["intraday_profile"]
+    assert payload["quality"]["selected_coverage_ratio"] > 0
+    assert payload["time_window"]["effective_start"] == "2026-02-01"
+    assert payload["time_window"]["effective_end"] == "2026-02-11"
+    assert payload["kpis"][0]["label"] == "Mean Signal Level"
+    assert payload["top_anomalies"][0]["confidence"] in {"high", "medium", "low"}
+
+
+def test_daily_endpoint_filters_requested_range(client: TestClient) -> None:
+    response = client.get(
+        "/api/v1/metrics/daily",
+        params={"start_date": "2026-02-10", "end_date": "2026-02-10"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+
+    assert len(payload["points"]) == 1
+    assert payload["points"][0]["date"] == "2026-02-10"
+    assert payload["time_window"]["effective_start"] == "2026-02-10"
+    assert payload["time_window"]["effective_end"] == "2026-02-10"
+
+
+def test_invalid_date_range_returns_400(client: TestClient) -> None:
+    response = client.get(
+        "/api/v1/metrics/overview",
+        params={"start_date": "2026-02-11", "end_date": "2026-02-10"},
+    )
+
+    assert response.status_code == 400
+    assert "start_date" in response.json()["detail"]
+
+
+def test_coverage_extremes_returns_low_and_high_days(client: TestClient) -> None:
+    response = client.get("/api/v1/metrics/coverage-extremes", params={"limit": 3})
+
+    assert response.status_code == 200
+    payload = response.json()
+
+    assert len(payload["lowest_coverage_days"]) == 3
+    assert len(payload["highest_coverage_days"]) == 3
+    assert (
+        payload["lowest_coverage_days"][0]["coverage_ratio"]
+        <= payload["lowest_coverage_days"][1]["coverage_ratio"]
+    )
+    assert (
+        payload["highest_coverage_days"][0]["coverage_ratio"]
+        >= payload["highest_coverage_days"][1]["coverage_ratio"]
+    )
+
+
+def test_day_briefing_returns_single_day_narrative(client: TestClient) -> None:
+    response = client.get(
+        "/api/v1/metrics/day-briefing",
+        params={"target_date": "2026-02-10", "anomaly_limit": 2},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+
+    assert payload["briefing"]["target_date"] == "2026-02-10"
+    assert payload["briefing"]["summary"]
+    assert payload["briefing"]["strongest_hour"]["label"]
+    assert payload["briefing"]["suggested_questions"]
