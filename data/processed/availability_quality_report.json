@@ -1,0 +1,19 @@
+{
+  "raw_file_count": 201,
+  "raw_timestamp_cells": 69128,
+  "canonical_timestamp_count": 67141,
+  "duplicate_window_groups": 4,
+  "duplicate_window_records": 8,
+  "incomplete_window_records": 27,
+  "conflicting_timestamp_count": 0,
+  "overlapping_timestamp_count": 1963,
+  "unique_window_count": 197,
+  "cadence_seconds_mode": 10,
+  "observed_start": "2026-02-01T06:11:20-05:00",
+  "observed_end": "2026-02-11T15:00:00-05:00",
+  "expected_points_full_range": 89573,
+  "missing_points_full_range": 22432,
+  "missing_ratio_full_range": 0.250433,
+  "source_metric_name": "synthetic_monitoring_visible_stores",
+  "source_plot_name": "NOW"
+}
