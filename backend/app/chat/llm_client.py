@@ -248,9 +248,21 @@ def _extract_json_candidate(output_text: str) -> str:
     if stripped.startswith("{") and stripped.endswith("}"):
         return stripped
 
-    fenced_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", stripped, re.DOTALL)
-    if fenced_match:
-        return fenced_match.group(1).strip()
+    if stripped.startswith("```"):
+        fence_body: list[str] = []
+        inside_fence = False
+        for line in stripped.splitlines():
+            marker = line.strip()
+            if marker.startswith("```"):
+                if inside_fence:
+                    candidate = "\n".join(fence_body).strip()
+                    if candidate:
+                        return candidate
+                    break
+                inside_fence = True
+                continue
+            if inside_fence:
+                fence_body.append(line)
 
     start = stripped.find("{")
     end = stripped.rfind("}")
@@ -294,24 +306,26 @@ def _coerce_jsonish_payload(candidate: str) -> dict[str, Any] | None:
 
 
 def _extract_relaxed_sections(output_text: str) -> dict[str, Any]:
-    stripped = re.sub(r"```(?:json)?|```", "", output_text).strip()
-    section_patterns = {
-        "answer": re.compile(r"^(answer|respuesta)\s*:\s*(.*)$", re.IGNORECASE),
-        "hypotheses": re.compile(
-            r"^(hypotheses|possible reasons|hip[oó]tesis|posibles razones)\s*:\s*(.*)$",
-            re.IGNORECASE,
-        ),
-        "follow_up_questions": re.compile(
-            (
-                r"^(follow-up questions|follow up questions|next questions|"
-                r"preguntas siguientes|siguientes preguntas)\s*:\s*(.*)$"
-            ),
-            re.IGNORECASE,
-        ),
-        "caveats": re.compile(
-            r"^(caveats|warnings|advertencias|cautelas)\s*:\s*(.*)$",
-            re.IGNORECASE,
-        ),
+    stripped = "\n".join(
+        line for line in output_text.splitlines() if not line.strip().startswith("```")
+    ).strip()
+    section_labels = {
+        "answer": {"answer", "respuesta"},
+        "hypotheses": {
+            "hypotheses",
+            "possible reasons",
+            "hipótesis",
+            "hipotesis",
+            "posibles razones",
+        },
+        "follow_up_questions": {
+            "follow-up questions",
+            "follow up questions",
+            "next questions",
+            "preguntas siguientes",
+            "siguientes preguntas",
+        },
+        "caveats": {"caveats", "warnings", "advertencias", "cautelas"},
     }
 
     buckets: dict[str, list[str]] = {
@@ -329,20 +343,22 @@ def _extract_relaxed_sections(output_text: str) -> dict[str, Any]:
 
         matched_section = None
         remainder = ""
-        for section_name, pattern in section_patterns.items():
-            match = pattern.match(line)
-            if match:
-                matched_section = section_name
-                remainder = match.group(2).strip()
-                break
+        header, separator, tail = line.partition(":")
+        if separator:
+            normalized_header = " ".join(header.lower().split())
+            for section_name, labels in section_labels.items():
+                if normalized_header in labels:
+                    matched_section = section_name
+                    remainder = tail.strip()
+                    break
 
         if matched_section is not None:
             current_section = matched_section
             if remainder:
-                buckets[current_section].append(re.sub(r"^[\-\*\u2022]\s*", "", remainder))
+                buckets[current_section].append(_strip_list_prefix(remainder))
             continue
 
-        cleaned_line = re.sub(r"^[\-\*\u2022]\s*", "", line)
+        cleaned_line = _strip_list_prefix(line)
         buckets[current_section].append(cleaned_line)
 
     answer = " ".join(buckets["answer"]).strip()
@@ -352,6 +368,16 @@ def _extract_relaxed_sections(output_text: str) -> dict[str, Any]:
         "follow_up_questions": buckets["follow_up_questions"],
         "caveats": buckets["caveats"],
     }
+
+
+def _strip_list_prefix(value: str) -> str:
+    stripped = value.lstrip()
+    for marker in ("- ", "* ", "\u2022 "):
+        if stripped.startswith(marker):
+            return stripped[len(marker) :].strip()
+    if stripped[:1] in {"-", "*", "\u2022"}:
+        return stripped[1:].strip()
+    return stripped
 
 
 def _parse_enrichment_result(

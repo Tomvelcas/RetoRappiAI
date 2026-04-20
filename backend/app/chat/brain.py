@@ -88,6 +88,37 @@ def _month_number(value: str) -> int | None:
     return MONTH_ALIASES.get(value.lower().strip().rstrip("."))
 
 
+def _question_tokens(question: str) -> tuple[str, ...]:
+    trimmed = (
+        fragment.strip(".,;:!?()[]{}\"'")
+        for fragment in question.replace(",", " ").split()
+    )
+    return tuple(token.lower() for token in trimmed if token)
+
+
+def _safe_int(value: str) -> int | None:
+    try:
+        return int(value)
+    except ValueError:
+        return None
+
+
+def _register_date(
+    resolved: dict[str, date],
+    *,
+    year_value: int,
+    month_value: int | None,
+    day_value: int | None,
+) -> None:
+    if month_value is None or day_value is None:
+        return
+    try:
+        parsed = date(year_value, month_value, day_value)
+    except ValueError:
+        return
+    resolved[parsed.isoformat()] = parsed
+
+
 def _extract_iso_dates(question: str) -> tuple[date, ...]:
     matches = re.findall(r"\b\d{4}-\d{2}-\d{2}\b", question)
     return tuple(date.fromisoformat(match) for match in matches)
@@ -96,30 +127,44 @@ def _extract_iso_dates(question: str) -> tuple[date, ...]:
 def _extract_natural_dates(question: str) -> tuple[date, ...]:
     resolved: dict[str, date] = {}
     default_year = _default_year()
-    patterns = [
-        re.compile(
-            (
-                r"\b(?P<day>\d{1,2})\s+de\s+"
-                r"(?P<month>[a-zA-Záéíóúñ\.]+)(?:\s+de\s+(?P<year>\d{4}))?\b"
-            ),
-            re.IGNORECASE,
-        ),
-        re.compile(
-            r"\b(?P<month>[a-zA-Záéíóúñ\.]+)\s+(?P<day>\d{1,2})(?:,\s*(?P<year>\d{4}))?\b",
-            re.IGNORECASE,
-        ),
-    ]
-    for pattern in patterns:
-        for match in pattern.finditer(question):
-            month_value = _month_number(match.group("month"))
-            if month_value is None:
-                continue
-            year_value = int(match.group("year")) if match.group("year") else default_year
-            try:
-                parsed = date(year_value, month_value, int(match.group("day")))
-            except ValueError:
-                continue
-            resolved[parsed.isoformat()] = parsed
+    tokens = _question_tokens(question)
+
+    for index, token in enumerate(tokens):
+        day_value = _safe_int(token)
+
+        if day_value is not None:
+            if index + 2 < len(tokens) and tokens[index + 1] == "de":
+                month_value = _month_number(tokens[index + 2])
+                year_value = default_year
+                if (
+                    index + 4 < len(tokens)
+                    and tokens[index + 3] == "de"
+                    and _safe_int(tokens[index + 4]) is not None
+                ):
+                    year_value = int(tokens[index + 4])
+                _register_date(
+                    resolved,
+                    year_value=year_value,
+                    month_value=month_value,
+                    day_value=day_value,
+                )
+            continue
+
+        month_value = _month_number(token)
+        if month_value is None or index + 1 >= len(tokens):
+            continue
+
+        day_value = _safe_int(tokens[index + 1])
+        year_value = default_year
+        if index + 2 < len(tokens) and _safe_int(tokens[index + 2]) is not None:
+            year_value = int(tokens[index + 2])
+        _register_date(
+            resolved,
+            year_value=year_value,
+            month_value=month_value,
+            day_value=day_value,
+        )
+
     return tuple(sorted(resolved.values()))
 
 
@@ -135,18 +180,29 @@ def extract_dates(question: str) -> tuple[date, ...]:
 
 def _extract_month(question: str) -> tuple[int, int] | None:
     default_year = _default_year()
-    match = re.search(
-        r"\b(?:mes de\s+)?(?P<month>[a-zA-Záéíóúñ\.]+)(?:\s+de\s+(?P<year>\d{4}))?\b",
-        question,
-        re.IGNORECASE,
-    )
-    if match is None:
-        return None
-    month_value = _month_number(match.group("month"))
-    if month_value is None:
-        return None
-    year_value = int(match.group("year")) if match.group("year") else default_year
-    return year_value, month_value
+    tokens = _question_tokens(question)
+
+    for index, token in enumerate(tokens):
+        month_token = token
+        month_index = index
+        if token == "mes" and index + 2 < len(tokens) and tokens[index + 1] == "de":
+            month_token = tokens[index + 2]
+            month_index = index + 2
+
+        month_value = _month_number(month_token)
+        if month_value is None:
+            continue
+
+        year_value = default_year
+        if (
+            month_index + 2 < len(tokens)
+            and tokens[month_index + 1] == "de"
+            and _safe_int(tokens[month_index + 2]) is not None
+        ):
+            year_value = int(tokens[month_index + 2])
+        return year_value, month_value
+
+    return None
 
 
 def _selection_from_question(question: str) -> tuple[DateSelection, tuple[date, ...]]:
