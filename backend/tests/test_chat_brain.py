@@ -29,7 +29,13 @@ def test_brain_builds_hourly_profile_chart_plan_for_month_question() -> None:
 
 
 def test_brain_builds_hybrid_weekday_weekend_conclusion_plan() -> None:
-    brain = ChatBrain(settings=Settings(LLM_ENABLED=True, CHAT_AUTO_LLM=True))
+    brain = ChatBrain(
+        settings=Settings(
+            LLM_ENABLED=True,
+            CHAT_AUTO_LLM=True,
+            OPENAI_API_KEY="test-key",
+        )
+    )
 
     plan = brain.plan(
         (
