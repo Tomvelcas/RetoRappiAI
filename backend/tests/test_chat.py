@@ -162,6 +162,42 @@ def test_chat_supports_weekend_report_question(client: TestClient) -> None:
     assert payload["artifacts"][0]["kind"] == "bar_chart"
 
 
+def test_chat_translates_validation_errors_to_400(
+    client: TestClient,
+    monkeypatch,
+) -> None:
+    def _raise_value_error(*args, **kwargs) -> None:
+        raise ValueError("Pregunta inválida.")
+
+    monkeypatch.setattr("app.api.routes.chat.answer_question", _raise_value_error)
+
+    response = client.post(
+        "/api/v1/chat/query",
+        json={"question": "forzar error"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Pregunta inválida."
+
+
+def test_chat_translates_missing_context_errors_to_404(
+    client: TestClient,
+    monkeypatch,
+) -> None:
+    def _raise_lookup_error(*args, **kwargs) -> None:
+        raise LookupError("No se encontró el contexto solicitado.")
+
+    monkeypatch.setattr("app.api.routes.chat.answer_question", _raise_lookup_error)
+
+    response = client.post(
+        "/api/v1/chat/query",
+        json={"question": "forzar missing context"},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "No se encontró el contexto solicitado."
+
+
 def test_chat_reuses_conversation_context_for_follow_up(
     client: TestClient,
     monkeypatch,

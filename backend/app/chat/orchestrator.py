@@ -582,11 +582,7 @@ def _hourly_coverage_artifact(
             label=str(item["label"]),
             value=float(item["coverage_ratio"]),
             formatted_value=format_percent(float(item["coverage_ratio"])),
-            detail=(
-                f"{item['n_points']} / 360"
-                if context.language == "es"
-                else f"{item['n_points']} / 360"
-            ),
+            detail=f"{item['n_points']} / 360",
             highlight=bool(item["highlight"]),
             tone="warning" if str(item["coverage_flag"]) == "low" else "accent",
         )
@@ -1134,11 +1130,7 @@ def _hourly_coverage_profile_response(
                 "label": str(item["label"]),
                 "value": float(item["coverage_ratio"]),
                 "formatted_value": format_percent(float(item["coverage_ratio"])),
-                "detail": (
-                    f"{int(float(item['avg_points']))} pts"
-                    if context.language == "es"
-                    else f"{int(float(item['avg_points']))} pts"
-                ),
+                "detail": f"{int(float(item['avg_points']))} pts",
                 "highlight": int(item["hour"]) == int(weakest_hour["hour"])
                 or int(item["hour"]) == int(strongest_hour["hour"]),
                 "tone": (
