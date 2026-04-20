@@ -131,41 +131,76 @@ def _extract_natural_dates(question: str) -> tuple[date, ...]:
 
     for index, token in enumerate(tokens):
         day_value = _safe_int(token)
-
         if day_value is not None:
-            if index + 2 < len(tokens) and tokens[index + 1] == "de":
-                month_value = _month_number(tokens[index + 2])
-                year_value = default_year
-                if (
-                    index + 4 < len(tokens)
-                    and tokens[index + 3] == "de"
-                    and _safe_int(tokens[index + 4]) is not None
-                ):
-                    year_value = int(tokens[index + 4])
-                _register_date(
-                    resolved,
-                    year_value=year_value,
-                    month_value=month_value,
-                    day_value=day_value,
-                )
+            _register_day_first_date(
+                resolved,
+                tokens=tokens,
+                index=index,
+                day_value=day_value,
+                default_year=default_year,
+            )
             continue
 
-        month_value = _month_number(token)
-        if month_value is None or index + 1 >= len(tokens):
-            continue
-
-        day_value = _safe_int(tokens[index + 1])
-        year_value = default_year
-        if index + 2 < len(tokens) and _safe_int(tokens[index + 2]) is not None:
-            year_value = int(tokens[index + 2])
-        _register_date(
+        _register_month_first_date(
             resolved,
-            year_value=year_value,
-            month_value=month_value,
-            day_value=day_value,
+            tokens=tokens,
+            index=index,
+            default_year=default_year,
         )
 
     return tuple(sorted(resolved.values()))
+
+
+def _register_day_first_date(
+    resolved: dict[str, date],
+    *,
+    tokens: tuple[str, ...],
+    index: int,
+    day_value: int,
+    default_year: int,
+) -> None:
+    if index + 2 >= len(tokens) or tokens[index + 1] != "de":
+        return
+
+    month_value = _month_number(tokens[index + 2])
+    year_value = default_year
+    if (
+        index + 4 < len(tokens)
+        and tokens[index + 3] == "de"
+        and _safe_int(tokens[index + 4]) is not None
+    ):
+        year_value = int(tokens[index + 4])
+
+    _register_date(
+        resolved,
+        year_value=year_value,
+        month_value=month_value,
+        day_value=day_value,
+    )
+
+
+def _register_month_first_date(
+    resolved: dict[str, date],
+    *,
+    tokens: tuple[str, ...],
+    index: int,
+    default_year: int,
+) -> None:
+    month_value = _month_number(tokens[index])
+    if month_value is None or index + 1 >= len(tokens):
+        return
+
+    day_value = _safe_int(tokens[index + 1])
+    year_value = default_year
+    if index + 2 < len(tokens) and _safe_int(tokens[index + 2]) is not None:
+        year_value = int(tokens[index + 2])
+
+    _register_date(
+        resolved,
+        year_value=year_value,
+        month_value=month_value,
+        day_value=day_value,
+    )
 
 
 def extract_dates(question: str) -> tuple[date, ...]:
@@ -328,6 +363,70 @@ def _is_referential_follow_up(question: str) -> bool:
     return any(marker in lowered for marker in REFERENTIAL_MARKERS)
 
 
+def _plan_direct_intent(
+    question: str,
+    output_intent: Literal["answer", "chart", "report", "conclusions"],
+) -> tuple[str, Literal["deterministic", "deterministic_artifact", "hybrid"]]:
+    if _asks_weekday_weekend(question):
+        return "weekday_weekend_comparison", _report_or_chart_mode(output_intent)
+    if _asks_weekend_report(question):
+        return "weekend_coverage_report", _report_or_chart_mode(output_intent)
+    if _asks_hourly_month_chart(question):
+        return "hourly_coverage_profile", "deterministic_artifact"
+    if _asks_daily_coverage_chart(question):
+        return "daily_coverage_profile", "deterministic_artifact"
+
+    import app.chat.orchestrator as chat_orchestrator
+
+    intent = chat_orchestrator._classify_intent(question)
+    if output_intent == "chart":
+        return intent, "deterministic_artifact"
+    if output_intent in {"report", "conclusions"}:
+        return intent, "hybrid"
+    return intent, "deterministic"
+
+
+def _report_or_chart_mode(
+    output_intent: Literal["answer", "chart", "report", "conclusions"],
+) -> Literal["deterministic_artifact", "hybrid"]:
+    if output_intent in {"report", "conclusions"}:
+        return "hybrid"
+    return "deterministic_artifact"
+
+
+def _reuse_conversation_context(
+    *,
+    question: str,
+    selection: DateSelection,
+    extracted_dates: tuple[date, ...],
+    output_intent: Literal["answer", "chart", "report", "conclusions"],
+    intent: str,
+    conversation_state: ConversationState | None,
+) -> tuple[DateSelection, str, bool, tuple[str, ...]]:
+    if (
+        conversation_state is None
+        or not _is_referential_follow_up(question)
+        or extracted_dates
+        or _extract_month(question) is not None
+    ):
+        return selection, intent, False, ()
+
+    next_selection = build_selection(
+        start_date=conversation_state.effective_start,
+        end_date=conversation_state.effective_end,
+    )
+    notes = ["Reused the active analytical window from conversation memory."]
+    next_intent = intent
+    if output_intent != "answer":
+        next_intent = conversation_state.intent
+        notes.append("Kept the previous analysis family and changed only the output style.")
+    elif intent in {"trend_summary", "intraday_pattern"}:
+        next_intent = conversation_state.intent
+        notes.append("Inherited the last analysis family because the follow-up was referential.")
+
+    return next_selection, next_intent, True, tuple(notes)
+
+
 class ChatBrain:
     """Plan how the copilot should answer before execution happens."""
 
@@ -345,60 +444,15 @@ class ChatBrain:
         """Return a structured execution plan for the given question."""
         selection, extracted_dates = _selection_from_question(question)
         output_intent = _detect_output_intent(question)
-        inherited_context = False
-        notes: list[str] = []
-
-        if _asks_weekday_weekend(question):
-            intent = "weekday_weekend_comparison"
-            brain_mode = (
-                "hybrid"
-                if output_intent in {"report", "conclusions"}
-                else "deterministic_artifact"
-            )
-        elif _asks_weekend_report(question):
-            intent = "weekend_coverage_report"
-            brain_mode = (
-                "hybrid"
-                if output_intent in {"report", "conclusions"}
-                else "deterministic_artifact"
-            )
-        elif _asks_hourly_month_chart(question):
-            intent = "hourly_coverage_profile"
-            brain_mode = "deterministic_artifact"
-        elif _asks_daily_coverage_chart(question):
-            intent = "daily_coverage_profile"
-            brain_mode = "deterministic_artifact"
-        else:
-            import app.chat.orchestrator as chat_orchestrator
-
-            intent = chat_orchestrator._classify_intent(question)
-            if output_intent == "chart":
-                brain_mode = "deterministic_artifact"
-            elif output_intent in {"report", "conclusions"}:
-                brain_mode = "hybrid"
-            else:
-                brain_mode = "deterministic"
-
-        if (
-            conversation_state is not None
-            and _is_referential_follow_up(question)
-            and not extracted_dates
-            and _extract_month(question) is None
-        ):
-            selection = build_selection(
-                start_date=conversation_state.effective_start,
-                end_date=conversation_state.effective_end,
-            )
-            inherited_context = True
-            notes.append("Reused the active analytical window from conversation memory.")
-            if output_intent != "answer":
-                intent = conversation_state.intent
-                notes.append("Kept the previous analysis family and changed only the output style.")
-            elif intent in {"trend_summary", "intraday_pattern"}:
-                intent = conversation_state.intent
-                notes.append(
-                    "Inherited the last analysis family because the follow-up was referential."
-                )
+        intent, brain_mode = _plan_direct_intent(question, output_intent)
+        selection, intent, inherited_context, notes = _reuse_conversation_context(
+            question=question,
+            selection=selection,
+            extracted_dates=extracted_dates,
+            output_intent=output_intent,
+            intent=intent,
+            conversation_state=conversation_state,
+        )
 
         should_use_llm = force_use_llm or (
             self._settings.llm_ready
@@ -417,5 +471,5 @@ class ChatBrain:
             brain_mode=brain_mode,
             should_use_llm=should_use_llm,
             inherited_context=inherited_context,
-            notes=tuple(notes),
+            notes=notes,
         )

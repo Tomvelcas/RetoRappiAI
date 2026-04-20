@@ -248,28 +248,42 @@ def _extract_json_candidate(output_text: str) -> str:
     if stripped.startswith("{") and stripped.endswith("}"):
         return stripped
 
-    if stripped.startswith("```"):
-        fence_body: list[str] = []
-        inside_fence = False
-        for line in stripped.splitlines():
-            marker = line.strip()
-            if marker.startswith("```"):
-                if inside_fence:
-                    candidate = "\n".join(fence_body).strip()
-                    if candidate:
-                        return candidate
-                    break
-                inside_fence = True
-                continue
-            if inside_fence:
-                fence_body.append(line)
+    fenced_candidate = _extract_fenced_json_candidate(stripped)
+    if fenced_candidate:
+        return fenced_candidate
 
-    start = stripped.find("{")
-    end = stripped.rfind("}")
-    if start != -1 and end != -1 and end > start:
-        return stripped[start : end + 1].strip()
+    braced_candidate = _extract_braced_json_candidate(stripped)
+    if braced_candidate:
+        return braced_candidate
 
     return stripped
+
+
+def _extract_fenced_json_candidate(stripped: str) -> str | None:
+    if not stripped.startswith("```"):
+        return None
+
+    fence_body: list[str] = []
+    inside_fence = False
+    for line in stripped.splitlines():
+        marker = line.strip()
+        if marker.startswith("```"):
+            if inside_fence:
+                candidate = "\n".join(fence_body).strip()
+                return candidate or None
+            inside_fence = True
+            continue
+        if inside_fence:
+            fence_body.append(line)
+    return None
+
+
+def _extract_braced_json_candidate(stripped: str) -> str | None:
+    start = stripped.find("{")
+    end = stripped.rfind("}")
+    if start == -1 or end == -1 or end <= start:
+        return None
+    return stripped[start : end + 1].strip()
 
 
 def _normalize_list(value: Any) -> tuple[str, ...]:
@@ -341,17 +355,7 @@ def _extract_relaxed_sections(output_text: str) -> dict[str, Any]:
         if not line:
             continue
 
-        matched_section = None
-        remainder = ""
-        header, separator, tail = line.partition(":")
-        if separator:
-            normalized_header = " ".join(header.lower().split())
-            for section_name, labels in section_labels.items():
-                if normalized_header in labels:
-                    matched_section = section_name
-                    remainder = tail.strip()
-                    break
-
+        matched_section, remainder = _match_relaxed_section(line, section_labels)
         if matched_section is not None:
             current_section = matched_section
             if remainder:
@@ -368,6 +372,22 @@ def _extract_relaxed_sections(output_text: str) -> dict[str, Any]:
         "follow_up_questions": buckets["follow_up_questions"],
         "caveats": buckets["caveats"],
     }
+
+
+def _match_relaxed_section(
+    line: str,
+    section_labels: dict[str, set[str]],
+) -> tuple[str | None, str]:
+    header, separator, tail = line.partition(":")
+    if not separator:
+        return None, ""
+
+    normalized_header = " ".join(header.lower().split())
+    for section_name, labels in section_labels.items():
+        if normalized_header in labels:
+            return section_name, tail.strip()
+
+    return None, ""
 
 
 def _strip_list_prefix(value: str) -> str:
@@ -453,12 +473,7 @@ def _collect_web_sources(response_body: dict[str, Any]) -> tuple[ChatExternalSou
     return tuple(collected[:8])
 
 
-def generate_openai_enrichment(
-    chat_request: ChatQueryRequest,
-    grounded_response: ChatQueryResponse,
-    settings: Settings | None = None,
-) -> LLMEnrichmentResult:
-    """Call the OpenAI Responses API to enrich a deterministic answer."""
+def _resolve_runtime_settings(settings: Settings | None = None) -> Settings:
     runtime_settings = settings or get_settings()
     if not runtime_settings.llm_enabled:
         msg = "Optional LLM support is disabled in backend configuration."
@@ -469,6 +484,54 @@ def generate_openai_enrichment(
     if not runtime_settings.openai_api_key:
         msg = "OPENAI_API_KEY is required when LLM enrichment is enabled."
         raise LLMConfigurationError(msg)
+    return runtime_settings
+
+
+def _perform_openai_request(
+    *,
+    body: dict[str, Any],
+    runtime_settings: Settings,
+    network_error_message: str,
+    timeout_error_message: str,
+) -> dict[str, Any]:
+    raw_request = request.Request(
+        OPENAI_RESPONSES_URL,
+        data=json.dumps(body).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {runtime_settings.openai_api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+
+    try:
+        with request.urlopen(raw_request, timeout=runtime_settings.llm_timeout_seconds) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except error.HTTPError as http_error:
+        raise LLMRequestError(_safe_http_error_message(http_error)) from http_error
+    except error.URLError as url_error:
+        raise LLMRequestError(network_error_message) from url_error
+    except TimeoutError as timeout_error:
+        raise LLMRequestError(timeout_error_message) from timeout_error
+
+
+def _safe_http_error_message(http_error: error.HTTPError) -> str:
+    error_body = http_error.read().decode("utf-8", errors="ignore")
+    try:
+        parsed_error = json.loads(error_body)
+        message = parsed_error.get("error", {}).get("message") or error_body
+    except json.JSONDecodeError:
+        message = error_body or str(http_error)
+    return _user_safe_request_error(message)
+
+
+def generate_openai_enrichment(
+    chat_request: ChatQueryRequest,
+    grounded_response: ChatQueryResponse,
+    settings: Settings | None = None,
+) -> LLMEnrichmentResult:
+    """Call the OpenAI Responses API to enrich a deterministic answer."""
+    runtime_settings = _resolve_runtime_settings(settings)
 
     body = {
         "model": runtime_settings.openai_model,
@@ -504,31 +567,12 @@ def generate_openai_enrichment(
         },
     }
 
-    raw_request = request.Request(
-        OPENAI_RESPONSES_URL,
-        data=json.dumps(body).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {runtime_settings.openai_api_key}",
-            "Content-Type": "application/json",
-        },
-        method="POST",
+    response_body = _perform_openai_request(
+        body=body,
+        runtime_settings=runtime_settings,
+        network_error_message="The narrative polish service could not be reached.",
+        timeout_error_message="The narrative polish service timed out.",
     )
-
-    try:
-        with request.urlopen(raw_request, timeout=runtime_settings.llm_timeout_seconds) as response:
-            response_body = json.loads(response.read().decode("utf-8"))
-    except error.HTTPError as http_error:
-        error_body = http_error.read().decode("utf-8", errors="ignore")
-        try:
-            parsed_error = json.loads(error_body)
-            message = parsed_error.get("error", {}).get("message") or error_body
-        except json.JSONDecodeError:
-            message = error_body or str(http_error)
-        raise LLMRequestError(_user_safe_request_error(message)) from http_error
-    except error.URLError as url_error:
-        raise LLMRequestError("The narrative polish service could not be reached.") from url_error
-    except TimeoutError as timeout_error:
-        raise LLMRequestError("The narrative polish service timed out.") from timeout_error
 
     return _parse_enrichment_result(
         response_body,
@@ -543,16 +587,7 @@ def generate_openai_web_research(
     settings: Settings | None = None,
 ) -> LLMWebResearchResult:
     """Use OpenAI web search to gather sourced external context for tentative hypotheses."""
-    runtime_settings = settings or get_settings()
-    if not runtime_settings.llm_enabled:
-        msg = "Optional LLM support is disabled in backend configuration."
-        raise LLMConfigurationError(msg)
-    if runtime_settings.llm_provider != "openai":
-        msg = f"Unsupported LLM provider: {runtime_settings.llm_provider}."
-        raise LLMConfigurationError(msg)
-    if not runtime_settings.openai_api_key:
-        msg = "OPENAI_API_KEY is required when LLM enrichment is enabled."
-        raise LLMConfigurationError(msg)
+    runtime_settings = _resolve_runtime_settings(settings)
 
     body = {
         "model": runtime_settings.openai_model,
@@ -576,31 +611,12 @@ def generate_openai_web_research(
         "include": ["web_search_call.action.sources"],
     }
 
-    raw_request = request.Request(
-        OPENAI_RESPONSES_URL,
-        data=json.dumps(body).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {runtime_settings.openai_api_key}",
-            "Content-Type": "application/json",
-        },
-        method="POST",
+    response_body = _perform_openai_request(
+        body=body,
+        runtime_settings=runtime_settings,
+        network_error_message="The web research service could not be reached.",
+        timeout_error_message="The web research service timed out.",
     )
-
-    try:
-        with request.urlopen(raw_request, timeout=runtime_settings.llm_timeout_seconds) as response:
-            response_body = json.loads(response.read().decode("utf-8"))
-    except error.HTTPError as http_error:
-        error_body = http_error.read().decode("utf-8", errors="ignore")
-        try:
-            parsed_error = json.loads(error_body)
-            message = parsed_error.get("error", {}).get("message") or error_body
-        except json.JSONDecodeError:
-            message = error_body or str(http_error)
-        raise LLMRequestError(_user_safe_request_error(message)) from http_error
-    except error.URLError as url_error:
-        raise LLMRequestError("The web research service could not be reached.") from url_error
-    except TimeoutError as timeout_error:
-        raise LLMRequestError("The web research service timed out.") from timeout_error
 
     parsed = _parse_enrichment_result(
         response_body,

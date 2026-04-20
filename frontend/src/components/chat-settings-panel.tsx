@@ -7,7 +7,7 @@ import type { BackendHealth } from "@/lib/api";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ToggleSwitch } from "@/components/ui/toggle-switch";
 
-type ChatSettingsPanelProps = {
+type ChatSettingsPanelProps = Readonly<{
   allowHypotheses: boolean;
   allowWebResearch: boolean;
   externalContext: string;
@@ -20,7 +20,7 @@ type ChatSettingsPanelProps = {
   onAllowWebResearchChange: (value: boolean) => void;
   onExternalContextChange: (value: string) => void;
   onUseLlmChange: (value: boolean) => void;
-};
+}>;
 
 export function ChatSettingsPanel({
   allowHypotheses,

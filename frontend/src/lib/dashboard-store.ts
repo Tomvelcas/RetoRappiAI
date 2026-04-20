@@ -25,19 +25,19 @@ const DASHBOARD_PINNED_WIDGETS_KEY = "dashboard-canvas-pinned-widgets";
 export const DASHBOARD_WIDGETS_EVENT = "dashboard-canvas-updated";
 
 function dispatchDashboardUpdate() {
-  if (typeof window === "undefined") {
+  if (typeof globalThis.window === "undefined") {
     return;
   }
 
-  window.dispatchEvent(new Event(DASHBOARD_WIDGETS_EVENT));
+  globalThis.window.dispatchEvent(new Event(DASHBOARD_WIDGETS_EVENT));
 }
 
 export function loadDashboardLayouts(): DashboardWidgetLayouts {
-  if (typeof window === "undefined") {
+  if (typeof globalThis.window === "undefined") {
     return {};
   }
 
-  const raw = window.localStorage.getItem(DASHBOARD_LAYOUTS_KEY);
+  const raw = globalThis.window.localStorage.getItem(DASHBOARD_LAYOUTS_KEY);
   if (!raw) {
     return {};
   }
@@ -51,20 +51,20 @@ export function loadDashboardLayouts(): DashboardWidgetLayouts {
 }
 
 export function saveDashboardLayouts(layouts: DashboardWidgetLayouts) {
-  if (typeof window === "undefined") {
+  if (typeof globalThis.window === "undefined") {
     return;
   }
 
-  window.localStorage.setItem(DASHBOARD_LAYOUTS_KEY, JSON.stringify(layouts));
+  globalThis.window.localStorage.setItem(DASHBOARD_LAYOUTS_KEY, JSON.stringify(layouts));
   dispatchDashboardUpdate();
 }
 
 export function loadPinnedWidgets(): DashboardPinnedWidget[] {
-  if (typeof window === "undefined") {
+  if (typeof globalThis.window === "undefined") {
     return [];
   }
 
-  const raw = window.localStorage.getItem(DASHBOARD_PINNED_WIDGETS_KEY);
+  const raw = globalThis.window.localStorage.getItem(DASHBOARD_PINNED_WIDGETS_KEY);
   if (!raw) {
     return [];
   }
@@ -78,11 +78,11 @@ export function loadPinnedWidgets(): DashboardPinnedWidget[] {
 }
 
 function savePinnedWidgets(widgets: DashboardPinnedWidget[]) {
-  if (typeof window === "undefined") {
+  if (typeof globalThis.window === "undefined") {
     return;
   }
 
-  window.localStorage.setItem(
+  globalThis.window.localStorage.setItem(
     DASHBOARD_PINNED_WIDGETS_KEY,
     JSON.stringify(widgets.slice(0, 24)),
   );
@@ -96,7 +96,7 @@ export function pinArtifactWidget(input: {
   answerExcerpt: string;
   title?: string;
 }): DashboardPinnedWidget | null {
-  if (typeof window === "undefined") {
+  if (typeof globalThis.window === "undefined") {
     return null;
   }
 
@@ -122,7 +122,7 @@ export function pinArtifactWidget(input: {
 }
 
 export function removePinnedWidget(widgetId: string) {
-  if (typeof window === "undefined") {
+  if (typeof globalThis.window === "undefined") {
     return;
   }
 

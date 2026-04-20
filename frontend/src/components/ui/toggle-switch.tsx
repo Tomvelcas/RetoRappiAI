@@ -1,12 +1,12 @@
 "use client";
 
-type ToggleSwitchProps = {
+type ToggleSwitchProps = Readonly<{
   checked: boolean;
   disabled?: boolean;
   label: string;
   description: string;
   onCheckedChange: (checked: boolean) => void;
-};
+}>;
 
 export function ToggleSwitch({
   checked,
@@ -15,16 +15,22 @@ export function ToggleSwitch({
   description,
   onCheckedChange,
 }: ToggleSwitchProps) {
+  let wrapperTone =
+    "border-[color:var(--border)] bg-[color:var(--surface-strong)] hover:border-[color:var(--border-strong)]";
+  if (disabled) {
+    wrapperTone =
+      "cursor-not-allowed border-[color:var(--border)] bg-[color:rgba(255,255,255,0.45)] opacity-60";
+  } else if (checked) {
+    wrapperTone =
+      "border-[color:rgba(21,125,120,0.24)] bg-[color:rgba(21,125,120,0.08)]";
+  }
+
   return (
     <button
       aria-checked={checked}
       className={[
         "flex w-full items-start justify-between gap-4 rounded-[22px] border px-4 py-3 text-left transition",
-        disabled
-          ? "cursor-not-allowed border-[color:var(--border)] bg-[color:rgba(255,255,255,0.45)] opacity-60"
-          : checked
-            ? "border-[color:rgba(21,125,120,0.24)] bg-[color:rgba(21,125,120,0.08)]"
-            : "border-[color:var(--border)] bg-[color:var(--surface-strong)] hover:border-[color:var(--border-strong)]",
+        wrapperTone,
       ].join(" ")}
       disabled={disabled}
       onClick={() => onCheckedChange(!checked)}

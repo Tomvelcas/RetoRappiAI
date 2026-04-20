@@ -106,6 +106,100 @@ def _confidence_sentence(payload: ComposerInput) -> str:
     return f"This readout carries {payload.confidence} confidence."
 
 
+STATIC_FOLLOW_UPS: dict[Literal["es", "en"], dict[str, str]] = {
+    "es": {
+        "unsupported_request": (
+            "¿Quiere que lo llevemos a cobertura, anomalías o patrón horario?"
+        ),
+        "metric_definition": "¿Quiere ver los días más fuertes y más débiles de la señal?",
+        "data_quality_status": "¿Quiere que liste los días con menor cobertura?",
+        "hourly_coverage_profile": "¿Quiere comparar esa curva entre semana y fines de semana?",
+        "daily_coverage_profile": (
+            "¿Quiere que destaque los días más débiles y los compare contra el promedio?"
+        ),
+        "intraday_pattern": "¿Quiere que compare ese patrón contra una fecha puntual?",
+        "weekday_weekend_comparison": (
+            "¿Quiere que lo baje solo a fines de semana y lo detalle por fecha?"
+        ),
+        "weekend_coverage_report": "¿Quiere compararlo contra el baseline de entre semana?",
+        "coverage_extremes": "¿Quiere un briefing del día con menor cobertura?",
+        "day_briefing": "¿Quiere compararlo contra el día observado anterior?",
+    },
+    "en": {
+        "unsupported_request": (
+            "Do you want me to move that into coverage, anomalies, or hourly pattern?"
+        ),
+        "metric_definition": (
+            "Do you want the strongest and weakest observed days for this signal?"
+        ),
+        "data_quality_status": "Do you want me to list the lowest-coverage days?",
+        "hourly_coverage_profile": "Do you want that curve split into weekdays versus weekends?",
+        "daily_coverage_profile": (
+            "Do you want me to highlight the weakest days against the average?"
+        ),
+        "intraday_pattern": "Do you want that pattern compared against one specific date?",
+        "weekday_weekend_comparison": "Do you want a weekend-only breakdown by date?",
+        "weekend_coverage_report": "Do you want it compared against the weekday baseline?",
+        "coverage_extremes": "Do you want a briefing for the lowest-coverage day?",
+        "day_briefing": "Do you want it compared against the prior observed day?",
+    },
+}
+
+CHARTABLE_FOLLOW_UPS: dict[Literal["es", "en"], str] = {
+    "es": "¿Quiere verlo como gráfico?",
+    "en": "Do you want to see it as a chart?",
+}
+
+ARTIFACT_FOLLOW_UPS: dict[Literal["es", "en"], str] = {
+    "es": "¿Quiere que lo convierta en conclusiones claras?",
+    "en": "Do you want me to turn this into executive conclusions?",
+}
+
+WARNING_FOLLOW_UPS: dict[Literal["es", "en"], str] = {
+    "es": "¿Quiere que aísle solo la parte del rango con mejor soporte?",
+    "en": "Do you want me to isolate only the strongest-supported portion of the range?",
+}
+
+CHARTABLE_INTENTS = {
+    "hourly_coverage_profile",
+    "weekday_weekend_comparison",
+    "weekend_coverage_report",
+}
+
+
+def _hourly_lookup_follow_up(payload: ComposerInput) -> str:
+    if payload.language == "es":
+        return (
+            "¿Quiere compararla contra el resto de "
+            f"{_date_label(payload.target_date, payload.language)}?"
+        )
+    return (
+        "Do you want that hour compared against the rest of "
+        f"{_date_label(payload.target_date, payload.language)}?"
+    )
+
+
+def _collect_follow_up_candidates(payload: ComposerInput) -> list[str]:
+    suggestions: list[str] = []
+    static_prompt = STATIC_FOLLOW_UPS[payload.language].get(payload.intent)
+    if static_prompt:
+        suggestions.append(static_prompt)
+
+    if payload.artifacts and payload.output_intent != "conclusions":
+        suggestions.append(ARTIFACT_FOLLOW_UPS[payload.language])
+
+    if payload.output_intent != "chart" and payload.intent in CHARTABLE_INTENTS:
+        suggestions.append(CHARTABLE_FOLLOW_UPS[payload.language])
+
+    if payload.intent == "hourly_coverage_lookup":
+        suggestions.append(_hourly_lookup_follow_up(payload))
+
+    if payload.warnings:
+        suggestions.append(WARNING_FOLLOW_UPS[payload.language])
+
+    return suggestions
+
+
 def compose_answer(payload: ComposerInput) -> str:
     """Build a more contextual answer from grounded deterministic truths."""
     if not payload.supported:
@@ -127,96 +221,7 @@ def compose_answer(payload: ComposerInput) -> str:
 
 def compose_follow_ups(payload: ComposerInput) -> list[str]:
     """Generate contextual follow-up questions from what was actually computed."""
-    suggestions: list[str] = []
-
-    if payload.language == "es":
-        if payload.intent == "unsupported_request":
-            suggestions.append(
-                "¿Quiere que lo llevemos a cobertura, anomalías o patrón horario?"
-            )
-        if payload.intent == "metric_definition":
-            suggestions.append("¿Quiere ver los días más fuertes y más débiles de la señal?")
-        if payload.intent == "data_quality_status":
-            suggestions.append("¿Quiere que liste los días con menor cobertura?")
-        if payload.artifacts and payload.output_intent != "conclusions":
-            suggestions.append("¿Quiere que lo convierta en conclusiones claras?")
-        if payload.output_intent != "chart" and payload.intent in {
-            "hourly_coverage_profile",
-            "weekday_weekend_comparison",
-            "weekend_coverage_report",
-        }:
-            suggestions.append("¿Quiere verlo como gráfico?")
-        if payload.intent == "hourly_coverage_lookup":
-            suggestions.append(
-                (
-                    "¿Quiere compararla contra el resto de "
-                    f"{_date_label(payload.target_date, payload.language)}?"
-                )
-            )
-        if payload.intent == "hourly_coverage_profile":
-            suggestions.append("¿Quiere comparar esa curva entre semana y fines de semana?")
-        if payload.intent == "daily_coverage_profile":
-            suggestions.append(
-                "¿Quiere que destaque los días más débiles y los compare contra el promedio?"
-            )
-        if payload.intent == "intraday_pattern":
-            suggestions.append("¿Quiere que compare ese patrón contra una fecha puntual?")
-        if payload.intent == "weekday_weekend_comparison":
-            suggestions.append(
-                "¿Quiere que lo baje solo a fines de semana y lo detalle por fecha?"
-            )
-        if payload.intent == "weekend_coverage_report":
-            suggestions.append("¿Quiere compararlo contra el baseline de entre semana?")
-        if payload.intent == "coverage_extremes":
-            suggestions.append("¿Quiere un briefing del día con menor cobertura?")
-        if payload.intent == "day_briefing":
-            suggestions.append("¿Quiere compararlo contra el día observado anterior?")
-        if payload.warnings:
-            suggestions.append("¿Quiere que aísle solo la parte del rango con mejor soporte?")
-    else:
-        if payload.intent == "unsupported_request":
-            suggestions.append(
-                "Do you want me to move that into coverage, anomalies, or hourly pattern?"
-            )
-        if payload.intent == "metric_definition":
-            suggestions.append(
-                "Do you want the strongest and weakest observed days for this signal?"
-            )
-        if payload.intent == "data_quality_status":
-            suggestions.append("Do you want me to list the lowest-coverage days?")
-        if payload.artifacts and payload.output_intent != "conclusions":
-            suggestions.append("Do you want me to turn this into executive conclusions?")
-        if payload.output_intent != "chart" and payload.intent in {
-            "hourly_coverage_profile",
-            "weekday_weekend_comparison",
-            "weekend_coverage_report",
-        }:
-            suggestions.append("Do you want to see it as a chart?")
-        if payload.intent == "hourly_coverage_lookup":
-            suggestions.append(
-                (
-                    "Do you want that hour compared against the rest of "
-                    f"{_date_label(payload.target_date, payload.language)}?"
-                )
-            )
-        if payload.intent == "hourly_coverage_profile":
-            suggestions.append("Do you want that curve split into weekdays versus weekends?")
-        if payload.intent == "daily_coverage_profile":
-            suggestions.append("Do you want me to highlight the weakest days against the average?")
-        if payload.intent == "intraday_pattern":
-            suggestions.append("Do you want that pattern compared against one specific date?")
-        if payload.intent == "weekday_weekend_comparison":
-            suggestions.append("Do you want a weekend-only breakdown by date?")
-        if payload.intent == "weekend_coverage_report":
-            suggestions.append("Do you want it compared against the weekday baseline?")
-        if payload.intent == "coverage_extremes":
-            suggestions.append("Do you want a briefing for the lowest-coverage day?")
-        if payload.intent == "day_briefing":
-            suggestions.append("Do you want it compared against the prior observed day?")
-        if payload.warnings:
-            suggestions.append(
-                "Do you want me to isolate only the strongest-supported portion of the range?"
-            )
+    suggestions = _collect_follow_up_candidates(payload)
 
     deduped: list[str] = []
     seen: set[str] = set()

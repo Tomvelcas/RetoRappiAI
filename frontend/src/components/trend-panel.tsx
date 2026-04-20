@@ -10,12 +10,12 @@ import {
   formatShortDate,
 } from "@/lib/format";
 
-type TrendPanelProps = {
+type TrendPanelProps = Readonly<{
   overview: MetricsOverviewResponse;
   briefing: DayBriefing;
   selectedDate: string;
   onSelectDate: (value: string) => void;
-};
+}>;
 
 type ChartPoint = {
   x: number;
@@ -78,6 +78,7 @@ export function TrendPanel({
   onSelectDate,
 }: TrendPanelProps) {
   const chartPoints = buildChartPoints(overview.trend);
+  const chatQuestion = `What happened on ${briefing.target_date}?`;
 
   return (
     <section className="grid gap-6 xl:grid-cols-[1.28fr_0.78fr]">
@@ -225,7 +226,7 @@ export function TrendPanel({
 
         <Link
           className="mt-6 inline-flex rounded-full bg-[color:var(--text-strong)] px-4 py-3 text-sm font-medium text-[color:var(--surface-strong)] transition hover:opacity-92"
-          href={`/chat?question=${encodeURIComponent(`What happened on ${briefing.target_date}?`)}`}
+          href={`/chat?question=${encodeURIComponent(chatQuestion)}`}
         >
           ask about this day
         </Link>

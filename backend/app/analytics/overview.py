@@ -764,7 +764,7 @@ def build_hourly_coverage_summary(
     )
     focus_row = ranked_selection[0]
     runner_up_row = ranked_selection[1] if len(ranked_selection) > 1 else None
-    all_hourly_rows = list(_dataset()[1])
+    all_hourly_rows = _dataset()[1]
     ranked_dataset = sorted(
         all_hourly_rows,
         key=lambda row: (_hourly_coverage_ratio(row), row.date, row.hour),

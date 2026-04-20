@@ -113,77 +113,70 @@ def _build_fallback_response(
     )
 
 
-def enrich_chat_response(
-    chat_request: ChatQueryRequest,
-    grounded_response: ChatQueryResponse,
-) -> ChatQueryResponse:
-    """Enrich a grounded response when optional LLM support is requested."""
-    if not chat_request.use_llm or not grounded_response.supported:
-        return grounded_response
-
-    response = grounded_response
-    try:
-        enrichment = generate_openai_enrichment(chat_request, grounded_response)
-    except LLMConfigurationError as error:
-        response = _build_fallback_response(chat_request, grounded_response, str(error))
-    except LLMRequestError as error:
-        response = _build_fallback_response(chat_request, grounded_response, str(error))
-    else:
-        warnings = _merge_text_lists(grounded_response.warnings, list(enrichment.caveats))
-        if chat_request.allow_hypotheses and enrichment.hypotheses:
-            spanish = _looks_spanish(chat_request.question)
-            warnings = _merge_text_lists(
-                warnings,
-                [
-                    (
-                        "Las hipótesis son interpretaciones tentativas y no hechos "
-                        "observados en el dato."
-                    )
-                    if spanish
-                    else (
-                        "Hypotheses are tentative semantic interpretations and not observed "
-                        "facts from the dataset."
-                    )
-                ],
-            )
-
-        disclaimer_suffix = (
+def _enrichment_disclaimer_suffix(spanish: bool) -> str:
+    if spanish:
+        return (
             " La redacción se enriqueció con un LLM, pero la evidencia numérica sigue "
             "saliendo de analítica determinística."
-            if _looks_spanish(chat_request.question)
-            else (
-                " Natural-language framing was enriched with an LLM, but the numeric "
-                "evidence still comes from deterministic analytics."
-            )
         )
+    return (
+        " Natural-language framing was enriched with an LLM, but the numeric "
+        "evidence still comes from deterministic analytics."
+    )
 
-        response = grounded_response.model_copy(
-            update={
-                "answer": enrichment.answer,
-                "answer_mode": "llm_enhanced",
-                "llm_used": True,
-                "llm_provider": enrichment.provider,
-                "llm_model": enrichment.model,
-                "external_context_used": bool(chat_request.external_context),
-                "hypotheses": list(enrichment.hypotheses)
-                if chat_request.allow_hypotheses
-                else [],
-                "follow_up_questions": list(enrichment.follow_up_questions)
-                or grounded_response.follow_up_questions,
-                "warnings": warnings,
-                "disclaimer": f"{grounded_response.disclaimer}{disclaimer_suffix}",
-            }
-        )
 
-    if not _wants_web_research(chat_request):
-        return response
+def _hypothesis_warning(spanish: bool) -> str:
+    if spanish:
+        return "Las hipótesis son interpretaciones tentativas y no hechos observados en el dato."
+    return (
+        "Hypotheses are tentative semantic interpretations and not observed facts "
+        "from the dataset."
+    )
 
-    try:
-        web_research = generate_openai_web_research(chat_request, grounded_response)
-    except (LLMConfigurationError, LLMRequestError):
-        return response
 
-    spanish = _looks_spanish(chat_request.question)
+def _build_llm_enhanced_response(
+    *,
+    chat_request: ChatQueryRequest,
+    grounded_response: ChatQueryResponse,
+    spanish: bool,
+) -> ChatQueryResponse:
+    enrichment = generate_openai_enrichment(chat_request, grounded_response)
+    warnings = _merge_text_lists(grounded_response.warnings, list(enrichment.caveats))
+    if chat_request.allow_hypotheses and enrichment.hypotheses:
+        warnings = _merge_text_lists(warnings, [_hypothesis_warning(spanish)])
+
+    return grounded_response.model_copy(
+        update={
+            "answer": enrichment.answer,
+            "answer_mode": "llm_enhanced",
+            "llm_used": True,
+            "llm_provider": enrichment.provider,
+            "llm_model": enrichment.model,
+            "external_context_used": bool(chat_request.external_context),
+            "hypotheses": list(enrichment.hypotheses) if chat_request.allow_hypotheses else [],
+            "follow_up_questions": list(enrichment.follow_up_questions)
+            or grounded_response.follow_up_questions,
+            "warnings": warnings,
+            "disclaimer": (
+                f"{grounded_response.disclaimer}{_enrichment_disclaimer_suffix(spanish)}"
+            ),
+        }
+    )
+
+
+def _web_context_warning(spanish: bool) -> str:
+    if spanish:
+        return "El contexto web es tentativo y no reemplaza la evidencia numérica del dataset."
+    return "Web context is tentative and does not replace the numeric evidence in the dataset."
+
+
+def _merge_web_research_response(
+    *,
+    chat_request: ChatQueryRequest,
+    response: ChatQueryResponse,
+    web_research,
+    spanish: bool,
+) -> ChatQueryResponse:
     merged_hypotheses = _merge_text_lists(
         response.hypotheses,
         list(web_research.hypotheses),
@@ -191,31 +184,19 @@ def enrich_chat_response(
     merged_warnings = _merge_text_lists(
         response.warnings,
         list(web_research.caveats),
-        [
-            (
-                "El contexto web es tentativo y no reemplaza la evidencia numérica del dataset."
-                if spanish
-                else (
-                    "Web context is tentative and does not replace the numeric evidence in "
-                    "the dataset."
-                )
-            )
-        ],
+        [_web_context_warning(spanish)],
     )
     merged_follow_ups = _merge_text_lists(
         list(response.follow_up_questions),
         list(web_research.follow_up_questions),
     )
-    enriched_answer = (
-        f"{response.answer}\n\n"
-        + (
-            f"Fuera del dataset, la investigación web no confirma una causa, "
-            f"pero sí deja este contexto tentativo: {web_research.summary}"
-            if spanish
-            else (
-                "Outside the dataset, web research does not confirm a cause, "
-                f"but it does suggest this tentative context: {web_research.summary}"
-            )
+    answer_prefix = (
+        "Fuera del dataset, la investigación web no confirma una causa, "
+        "pero sí deja este contexto tentativo: "
+        if spanish
+        else (
+            "Outside the dataset, web research does not confirm a cause, "
+            "but it does suggest this tentative context: "
         )
     )
     cleaned_warnings = [
@@ -227,7 +208,7 @@ def enrich_chat_response(
 
     return response.model_copy(
         update={
-            "answer": enriched_answer,
+            "answer": f"{response.answer}\n\n{answer_prefix}{web_research.summary}",
             "answer_mode": "llm_enhanced",
             "llm_used": True,
             "llm_provider": web_research.provider,
@@ -238,4 +219,38 @@ def enrich_chat_response(
             "web_research_used": True,
             "web_sources": list(web_research.sources),
         }
+    )
+
+
+def enrich_chat_response(
+    chat_request: ChatQueryRequest,
+    grounded_response: ChatQueryResponse,
+) -> ChatQueryResponse:
+    """Enrich a grounded response when optional LLM support is requested."""
+    if not chat_request.use_llm or not grounded_response.supported:
+        return grounded_response
+
+    spanish = _looks_spanish(chat_request.question)
+    try:
+        response = _build_llm_enhanced_response(
+            chat_request=chat_request,
+            grounded_response=grounded_response,
+            spanish=spanish,
+        )
+    except (LLMConfigurationError, LLMRequestError) as error:
+        response = _build_fallback_response(chat_request, grounded_response, str(error))
+
+    if not _wants_web_research(chat_request):
+        return response
+
+    try:
+        web_research = generate_openai_web_research(chat_request, grounded_response)
+    except (LLMConfigurationError, LLMRequestError):
+        return response
+
+    return _merge_web_research_response(
+        chat_request=chat_request,
+        response=response,
+        web_research=web_research,
+        spanish=spanish,
     )

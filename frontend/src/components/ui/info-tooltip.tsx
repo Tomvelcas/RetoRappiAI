@@ -2,11 +2,11 @@
 
 import { useId, useState } from "react";
 
-type InfoTooltipProps = {
+type InfoTooltipProps = Readonly<{
   content: string;
   label?: string;
   side?: "top" | "right";
-};
+}>;
 
 export function InfoTooltip({
   content,
@@ -17,17 +17,15 @@ export function InfoTooltip({
   const tooltipId = useId();
 
   return (
-    <span
-      className="relative inline-flex"
-      onBlur={() => setOpen(false)}
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-    >
+    <span className="relative inline-flex">
       <button
         aria-describedby={open ? tooltipId : undefined}
         aria-label={label}
         className="inline-flex size-5 items-center justify-center rounded-full border border-[color:var(--border)] bg-[color:rgba(255,255,255,0.7)] text-[11px] font-semibold text-[color:var(--text-soft)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-strong)]"
+        onBlur={() => setOpen(false)}
         onFocus={() => setOpen(true)}
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
         type="button"
       >
         i

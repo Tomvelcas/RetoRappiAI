@@ -21,14 +21,13 @@ export function BackendStatusBadge() {
     async function loadStatus() {
       try {
         const health = await getBackendHealth(controller.signal);
+        let label = health.environment;
+        if (health.environment === "local") {
+          label = health.llm.ready ? "en línea + redacción" : "en línea";
+        }
         setStatus({
           state: "online",
-          label:
-            health.environment === "local"
-              ? health.llm.ready
-                ? "en línea + redacción"
-                : "en línea"
-              : health.environment,
+          label,
         });
       } catch {
         if (!controller.signal.aborted) {
@@ -45,25 +44,19 @@ export function BackendStatusBadge() {
     return () => controller.abort();
   }, []);
 
-  const tone =
-    status.state === "online"
-      ? "bg-[color:rgba(21,125,120,0.12)] text-[color:var(--signal-cyan)]"
-      : status.state === "offline"
-        ? "bg-[color:rgba(178,76,89,0.12)] text-[color:var(--signal-rose)]"
-      : "bg-[color:rgba(176,108,31,0.12)] text-[color:var(--signal-amber)]";
+  let tone = "bg-[color:rgba(176,108,31,0.12)] text-[color:var(--signal-amber)]";
+  let dotTone = "bg-[color:var(--signal-amber)]";
+  if (status.state === "online") {
+    tone = "bg-[color:rgba(21,125,120,0.12)] text-[color:var(--signal-cyan)]";
+    dotTone = "bg-[color:var(--signal-cyan)]";
+  } else if (status.state === "offline") {
+    tone = "bg-[color:rgba(178,76,89,0.12)] text-[color:var(--signal-rose)]";
+    dotTone = "bg-[color:var(--signal-rose)]";
+  }
 
   return (
     <div className="hidden items-center gap-3 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-strong)] px-3 py-2 sm:flex">
-      <div
-        className={[
-          "size-2.5 rounded-full",
-          status.state === "online"
-            ? "bg-[color:var(--signal-cyan)]"
-            : status.state === "offline"
-              ? "bg-[color:var(--signal-rose)]"
-              : "bg-[color:var(--signal-amber)]",
-        ].join(" ")}
-      />
+      <div className={["size-2.5 rounded-full", dotTone].join(" ")} />
       <span className="text-xs uppercase tracking-[0.16em] text-[color:var(--text-dim)]">
         motor
       </span>

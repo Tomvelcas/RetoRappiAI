@@ -66,15 +66,15 @@ export function createBlankSession(): StoredChatSession {
 }
 
 export function sessionTitleFromQuestion(question: string): string {
-  return question.trim().replace(/\s+/g, " ").slice(0, 48) || "New chat";
+  return question.trim().replaceAll(/\s+/g, " ").slice(0, 48) || "New chat";
 }
 
 export function loadChatSessions(): StoredChatSession[] {
-  if (typeof window === "undefined") {
+  if (typeof globalThis.window === "undefined") {
     return [];
   }
 
-  const raw = window.localStorage.getItem(STORAGE_KEY);
+  const raw = globalThis.window.localStorage.getItem(STORAGE_KEY);
   if (!raw) {
     return [];
   }
@@ -88,17 +88,17 @@ export function loadChatSessions(): StoredChatSession[] {
 }
 
 export function saveChatSessions(sessions: StoredChatSession[]) {
-  if (typeof window === "undefined") {
+  if (typeof globalThis.window === "undefined") {
     return;
   }
 
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions.slice(0, 20)));
+  globalThis.window.localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions.slice(0, 20)));
 }
 
 export function clearChatSessionsStorage() {
-  if (typeof window === "undefined") {
+  if (typeof globalThis.window === "undefined") {
     return;
   }
 
-  window.localStorage.removeItem(STORAGE_KEY);
+  globalThis.window.localStorage.removeItem(STORAGE_KEY);
 }

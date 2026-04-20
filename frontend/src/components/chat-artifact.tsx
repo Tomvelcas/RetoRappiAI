@@ -34,7 +34,11 @@ function barTone(tone: ChatArtifact["points"][number]["tone"], highlight: boolea
   return "bg-[color:rgba(32,27,23,0.18)]";
 }
 
-export function ChatArtifactView({ artifact }: { artifact: ChatArtifact }) {
+type ChatArtifactViewProps = Readonly<{
+  artifact: ChatArtifact;
+}>;
+
+export function ChatArtifactView({ artifact }: ChatArtifactViewProps) {
   if (artifact.kind !== "hourly_coverage_chart" && artifact.kind !== "bar_chart") {
     return null;
   }

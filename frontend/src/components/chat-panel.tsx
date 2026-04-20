@@ -1,8 +1,8 @@
 import Link from "next/link";
 
-type ChatPanelProps = {
+type ChatPanelProps = Readonly<{
   prompts: string[];
-};
+}>;
 
 export function ChatPanel({ prompts }: ChatPanelProps) {
   return (

@@ -12,12 +12,12 @@ type DashboardCanvasItem = {
   minH?: number;
 };
 
-type DashboardCanvasProps = {
+type DashboardCanvasProps = Readonly<{
   items: DashboardCanvasItem[];
   layouts: DashboardWidgetLayouts;
   onLayoutsChange: (layouts: DashboardWidgetLayouts) => void;
   renderItem: (id: string) => React.ReactNode;
-};
+}>;
 
 type InteractionState = {
   id: string;
@@ -341,12 +341,12 @@ export function DashboardCanvas({
       const passedThreshold =
         Math.abs(deltaX) > DRAG_THRESHOLD || Math.abs(deltaY) > DRAG_THRESHOLD;
 
-      const activeMode =
-        currentInteraction.mode === "resize"
-          ? "resize"
-          : passedThreshold
-            ? "drag"
-            : "pending-drag";
+      let activeMode: InteractionState["mode"] = "pending-drag";
+      if (currentInteraction.mode === "resize") {
+        activeMode = "resize";
+      } else if (passedThreshold) {
+        activeMode = "drag";
+      }
 
       if (activeMode === "pending-drag") {
         return;
@@ -430,17 +430,17 @@ export function DashboardCanvas({
         return packedActive;
       });
       setInteraction(null);
-      window.setTimeout(() => {
+      globalThis.setTimeout(() => {
         suppressClickRef.current = false;
       }, 120);
     }
 
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", handlePointerUp, { once: true });
+    globalThis.addEventListener("pointermove", handlePointerMove);
+    globalThis.addEventListener("pointerup", handlePointerUp, { once: true });
 
     return () => {
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", handlePointerUp);
+      globalThis.removeEventListener("pointermove", handlePointerMove);
+      globalThis.removeEventListener("pointerup", handlePointerUp);
     };
   }, [canEdit, columnCount, columnWidth, interaction, items, layouts, onLayoutsChange, rowHeight]);
 
@@ -488,6 +488,9 @@ export function DashboardCanvas({
           const height = layout.h * rowHeight + Math.max(layout.h - 1, 0) * GRID_GAP;
           const left = layout.x * (columnWidth + GRID_GAP);
           const top = layout.y * (rowHeight + GRID_GAP);
+          const cardShadow = isActive
+            ? "shadow-[0_30px_90px_rgba(20,16,12,0.22)]"
+            : "hover:shadow-[0_24px_56px_rgba(28,22,16,0.12)]";
 
           return (
             <div
@@ -530,7 +533,7 @@ export function DashboardCanvas({
                 className={[
                   "group relative h-full overflow-hidden rounded-[32px] border bg-[color:rgba(255,255,255,0.86)] shadow-[0_18px_44px_rgba(45,34,24,0.1)] transition-[box-shadow,border-color]",
                   accentRing(item.accent),
-                  isActive ? "shadow-[0_30px_90px_rgba(20,16,12,0.22)]" : "hover:shadow-[0_24px_56px_rgba(28,22,16,0.12)]",
+                  cardShadow,
                 ].join(" ")}
                 style={{
                   touchAction: canEdit ? "none" : "pan-y",
@@ -542,7 +545,7 @@ export function DashboardCanvas({
                 <div className="h-full">{renderItem(item.id)}</div>
 
                 {canEdit ? (
-                  <div
+                  <button
                     aria-label={`Redimensionar ${item.title}`}
                     className="absolute bottom-3 right-3 z-10 h-5 w-5 cursor-se-resize opacity-60 transition group-hover:opacity-100"
                     data-canvas-resize="true"
@@ -558,12 +561,11 @@ export function DashboardCanvas({
                         startLayout: layout,
                       });
                     }}
-                    role="button"
-                    tabIndex={-1}
+                    type="button"
                   >
                     <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-br-[9px] border-b-2 border-r-2 border-[color:rgba(32,27,23,0.34)]" />
                     <span className="absolute bottom-1.5 right-1.5 h-2.5 w-2.5 rounded-br-[7px] border-b-2 border-r-2 border-[color:rgba(32,27,23,0.2)]" />
-                  </div>
+                  </button>
                 ) : null}
               </div>
             </div>

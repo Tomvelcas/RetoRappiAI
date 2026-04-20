@@ -12,7 +12,7 @@ export type DashboardStudioItem = {
 
 export type DashboardFilterPreset = "full" | "last5" | "last3" | "fragile";
 
-type DashboardStudioPanelProps = {
+type DashboardStudioPanelProps = Readonly<{
   activePreset: DashboardFilterPreset;
   collapsed: boolean;
   draftEndDate: string;
@@ -30,7 +30,7 @@ type DashboardStudioPanelProps = {
   onStartDateChange: (value: string) => void;
   onToggleCollapsed: () => void;
   onVisibilityChange: (id: string, visible: boolean) => void;
-};
+}>;
 
 const presetLabels: Record<DashboardFilterPreset, string> = {
   full: "Todo",
@@ -42,10 +42,10 @@ const presetLabels: Record<DashboardFilterPreset, string> = {
 function VisibilitySwitch({
   checked,
   onChange,
-}: {
+}: Readonly<{
   checked: boolean;
   onChange: (checked: boolean) => void;
-}) {
+}>) {
   return (
     <button
       aria-checked={checked}

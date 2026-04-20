@@ -21,9 +21,9 @@ import {
 } from "@/lib/chat-store";
 import { coverageChip, modeLabel, sourceLabel } from "@/lib/format";
 
-type ChatWorkspaceProps = {
+type ChatWorkspaceProps = Readonly<{
   initialQuestion?: string | null;
-};
+}>;
 
 const starterPrompts = [
   "¿Qué pasó el 2026-02-10?",
@@ -162,12 +162,12 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
       setPinnedCount(loadPinnedWidgets().length);
     }
 
-    window.addEventListener(DASHBOARD_WIDGETS_EVENT, syncPinnedCount);
-    window.addEventListener("storage", syncPinnedCount);
+    globalThis.addEventListener(DASHBOARD_WIDGETS_EVENT, syncPinnedCount);
+    globalThis.addEventListener("storage", syncPinnedCount);
 
     return () => {
-      window.removeEventListener(DASHBOARD_WIDGETS_EVENT, syncPinnedCount);
-      window.removeEventListener("storage", syncPinnedCount);
+      globalThis.removeEventListener(DASHBOARD_WIDGETS_EVENT, syncPinnedCount);
+      globalThis.removeEventListener("storage", syncPinnedCount);
     };
   }, []);
 
@@ -211,19 +211,19 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
     }
 
     void loadHealth();
-    const intervalId = window.setInterval(() => {
+    const intervalId = globalThis.setInterval(() => {
       controller.abort();
       controller = new AbortController();
       void loadHealth();
     }, 15000);
-    window.addEventListener("focus", handleVisibilityChange);
+    globalThis.addEventListener("focus", handleVisibilityChange);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       mounted = false;
       controller.abort();
-      window.clearInterval(intervalId);
-      window.removeEventListener("focus", handleVisibilityChange);
+      globalThis.clearInterval(intervalId);
+      globalThis.removeEventListener("focus", handleVisibilityChange);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, []);
@@ -240,9 +240,7 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
     sessions.find((session) => session.id === activeSessionId) ?? sessions[0] ?? null;
 
   const latestAssistantPayload = activeSession
-    ? activeSession.turns
-        .filter((turn) => turn.role === "assistant")
-        .at(-1)?.payload ?? null
+    ? activeSession.turns.findLast((turn) => turn.role === "assistant")?.payload ?? null
     : null;
 
   const llmReady = backendHealth?.llm.ready ?? false;
@@ -572,8 +570,7 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
                   const sourceQuestion =
                     activeSession.turns
                       .slice(0, index)
-                      .reverse()
-                      .find((item) => item.role === "user")?.text ?? activeSession.title;
+                      .findLast((item) => item.role === "user")?.text ?? activeSession.title;
 
                   return (
                     <article key={turn.id}>

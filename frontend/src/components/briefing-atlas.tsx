@@ -11,13 +11,13 @@ import { formatCoverage, formatShortDate } from "@/lib/format";
 import { ChatPanel } from "@/components/chat-panel";
 import { SignalDotField } from "@/components/signal-dot-field";
 
-type BriefingAtlasProps = {
+type BriefingAtlasProps = Readonly<{
   trend: DailyTrendPoint[];
   extremes: MetricsCoverageExtremesResponse;
   briefing: DayBriefing;
   selectedDate: string;
   onSelectDate: (value: string) => void;
-};
+}>;
 
 function buildLowCoverageSet(items: CoverageExtremePoint[]): Set<string> {
   return new Set(items.map((item) => item.date));
@@ -66,32 +66,32 @@ export function BriefingAtlas({
               {trend.map((day, index) => {
                 const active = day.date === selectedDate;
                 const lowCoverage = lowCoverageSet.has(day.date);
+                let itemTone =
+                  "border-[color:var(--border)] bg-[color:rgba(255,255,255,0.72)] hover:border-[color:var(--border-strong)]";
+                let dotTone = "bg-[color:var(--text-strong)]";
+
+                if (active) {
+                  itemTone =
+                    "border-[color:rgba(21,125,120,0.3)] bg-[color:rgba(21,125,120,0.08)]";
+                  dotTone = "bg-[color:var(--signal-cyan)]";
+                } else if (lowCoverage) {
+                  itemTone =
+                    "border-[color:rgba(178,76,89,0.24)] bg-[color:rgba(178,76,89,0.08)]";
+                  dotTone = "bg-[color:var(--signal-rose)]";
+                }
 
                 return (
                   <div className="flex items-center gap-3" key={day.date}>
                     <button
                       className={[
                         "relative rounded-full border px-4 py-4 text-left transition",
-                        active
-                          ? "border-[color:rgba(21,125,120,0.3)] bg-[color:rgba(21,125,120,0.08)]"
-                          : lowCoverage
-                            ? "border-[color:rgba(178,76,89,0.24)] bg-[color:rgba(178,76,89,0.08)]"
-                            : "border-[color:var(--border)] bg-[color:rgba(255,255,255,0.72)] hover:border-[color:var(--border-strong)]",
+                        itemTone,
                       ].join(" ")}
                       onClick={() => onSelectDate(day.date)}
                       type="button"
                     >
                       <div className="flex items-center gap-3">
-                        <span
-                          className={[
-                            "size-3 rounded-full",
-                            active
-                              ? "bg-[color:var(--signal-cyan)]"
-                              : lowCoverage
-                                ? "bg-[color:var(--signal-rose)]"
-                                : "bg-[color:var(--text-strong)]",
-                          ].join(" ")}
-                        />
+                        <span className={["size-3 rounded-full", dotTone].join(" ")} />
                         <div>
                           <p className="text-sm font-medium text-[color:var(--text-strong)]">
                             {formatShortDate(day.date)}

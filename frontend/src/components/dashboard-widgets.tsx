@@ -27,55 +27,55 @@ import {
 
 import { ChatArtifactView } from "@/components/chat-artifact";
 
-type WidgetChromeProps = {
+type WidgetChromeProps = Readonly<{
   eyebrow: string;
   title: string;
   description: string;
   actions?: React.ReactNode;
   children: React.ReactNode;
   footer?: React.ReactNode;
-};
+}>;
 
-type SignalTimelineWidgetProps = {
+type SignalTimelineWidgetProps = Readonly<{
   points: DailyTrendPoint[];
   selectedDate: string;
   notes: string[];
   onSelectDate: (date: string) => void;
   actions?: React.ReactNode;
-};
+}>;
 
-type DaySpotlightWidgetProps = {
+type DaySpotlightWidgetProps = Readonly<{
   briefing: DayBriefing;
   actions?: React.ReactNode;
-};
+}>;
 
-type IntradayRhythmWidgetProps = {
+type IntradayRhythmWidgetProps = Readonly<{
   profile: IntradayProfilePoint[];
   actions?: React.ReactNode;
-};
+}>;
 
-type AnomalyPulseWidgetProps = {
+type AnomalyPulseWidgetProps = Readonly<{
   anomalies: AnomalyHighlight[];
   actions?: React.ReactNode;
-};
+}>;
 
-type QualityLensWidgetProps = {
+type QualityLensWidgetProps = Readonly<{
   overview: MetricsOverviewResponse;
   actions?: React.ReactNode;
-};
+}>;
 
-type CoverageExtremesWidgetProps = {
+type CoverageExtremesWidgetProps = Readonly<{
   coverage: MetricsCoverageExtremesResponse;
   selectedDate: string;
   onSelectDate: (date: string) => void;
   actions?: React.ReactNode;
-};
+}>;
 
-type PinnedWidgetProps = {
+type PinnedWidgetProps = Readonly<{
   widget: DashboardPinnedWidget;
   onRemove: () => void;
   actions?: React.ReactNode;
-};
+}>;
 
 function WidgetChrome({
   eyebrow,
@@ -117,11 +117,11 @@ function ActionButton({
   label,
   onClick,
   tone = "default",
-}: {
+}: Readonly<{
   label: string;
   onClick: () => void;
   tone?: "default" | "danger";
-}) {
+}>) {
   return (
     <button
       className={[
@@ -461,19 +461,20 @@ export function IntradayRhythmWidget({ profile, actions }: IntradayRhythmWidgetP
           {profile.map((item) => {
             const isStrong = strongest?.hour === item.hour;
             const isWeak = weakest?.hour === item.hour;
+            let barTone = "bg-[linear-gradient(180deg,rgba(32,27,23,0.5),rgba(32,27,23,0.18))]";
+            if (isStrong) {
+              barTone =
+                "bg-[linear-gradient(180deg,rgba(21,125,120,0.95),rgba(21,125,120,0.42))]";
+            } else if (isWeak) {
+              barTone =
+                "bg-[linear-gradient(180deg,rgba(178,76,89,0.88),rgba(178,76,89,0.34))]";
+            }
 
             return (
               <div className="w-12 text-center" key={item.hour}>
                 <div className="relative flex h-44 items-end justify-center overflow-hidden rounded-[18px] border border-[color:var(--border)] bg-[color:rgba(32,27,23,0.03)] px-2 py-2">
                   <div
-                    className={[
-                      "w-full rounded-full transition",
-                      isStrong
-                        ? "bg-[linear-gradient(180deg,rgba(21,125,120,0.95),rgba(21,125,120,0.42))]"
-                        : isWeak
-                          ? "bg-[linear-gradient(180deg,rgba(178,76,89,0.88),rgba(178,76,89,0.34))]"
-                          : "bg-[linear-gradient(180deg,rgba(32,27,23,0.5),rgba(32,27,23,0.18))]",
-                    ].join(" ")}
+                    className={["w-full rounded-full transition", barTone].join(" ")}
                     style={{
                       height: `${Math.max((item.mean_signal / maxSignal) * 100, 8)}%`,
                       opacity: Math.max(item.coverage_ratio, 0.35),

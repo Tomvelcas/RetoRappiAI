@@ -204,6 +204,12 @@ function syncPinnedWidgets() {
   return loadPinnedWidgets();
 }
 
+function removePinnedDashboardWidget(widgetId: string) {
+  removePinnedWidget(widgetId);
+}
+
+const LOADING_KPI_SKELETON_IDS = ["loading-kpi-1", "loading-kpi-2", "loading-kpi-3", "loading-kpi-4"];
+
 export function DashboardScreen() {
   const [state, setState] = useState<DashboardState>(initialState);
   const [pinnedWidgets, setPinnedWidgets] = useState<DashboardPinnedWidget[]>([]);
@@ -232,12 +238,12 @@ export function DashboardScreen() {
     }
 
     syncDashboardState();
-    window.addEventListener(DASHBOARD_WIDGETS_EVENT, syncDashboardState);
-    window.addEventListener("storage", syncDashboardState);
+    globalThis.addEventListener(DASHBOARD_WIDGETS_EVENT, syncDashboardState);
+    globalThis.addEventListener("storage", syncDashboardState);
 
     return () => {
-      window.removeEventListener(DASHBOARD_WIDGETS_EVENT, syncDashboardState);
-      window.removeEventListener("storage", syncDashboardState);
+      globalThis.removeEventListener(DASHBOARD_WIDGETS_EVENT, syncDashboardState);
+      globalThis.removeEventListener("storage", syncDashboardState);
     };
   }, []);
 
@@ -433,10 +439,6 @@ export function DashboardScreen() {
     });
   }
 
-  function removePinnedDashboardWidget(widgetId: string) {
-    removePinnedWidget(widgetId);
-  }
-
   const latestKnownBriefing = Object.values(state.briefings).at(-1) ?? null;
   const activeBriefing =
     (state.selectedDate ? state.briefings[state.selectedDate] : null) ?? latestKnownBriefing;
@@ -447,8 +449,8 @@ export function DashboardScreen() {
         <div className="grid gap-4">
           <div className="panel h-[180px] animate-pulse rounded-[34px]" />
           <div className="grid gap-4 md:grid-cols-4">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <div className="panel h-[138px] animate-pulse rounded-[28px]" key={index} />
+            {LOADING_KPI_SKELETON_IDS.map((key) => (
+              <div className="panel h-[138px] animate-pulse rounded-[28px]" key={key} />
             ))}
           </div>
           <div className="panel h-[920px] animate-pulse rounded-[34px]" />
@@ -521,6 +523,7 @@ export function DashboardScreen() {
   const rangeLabel = `${formatLongDate(overview.time_window.effective_start)} a ${formatLongDate(
     overview.time_window.effective_end,
   )}`;
+  const copilotoQuestion = `¿Qué pasó el ${activeSelectedDate}?`;
 
   function renderWidget(widgetId: string) {
     if (widgetId === "signal-timeline") {
@@ -625,7 +628,7 @@ export function DashboardScreen() {
                 </button>
                 <Link
                   className="rounded-full border border-[color:var(--border)] px-4 py-2 text-sm text-[color:var(--text-soft)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-strong)]"
-                  href={`/chat?question=${encodeURIComponent(`¿Qué pasó el ${activeSelectedDate}?`)}`}
+                  href={`/chat?question=${encodeURIComponent(copilotoQuestion)}`}
                 >
                   Abrir en copiloto
                 </Link>

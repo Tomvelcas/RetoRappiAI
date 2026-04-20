@@ -159,53 +159,90 @@ def _natural_language_dates(question: str) -> tuple[date, ...]:
 
     for index, token in enumerate(tokens):
         day_value = _safe_int(token)
-
         if day_value is not None:
-            if index + 2 < len(tokens) and tokens[index + 1] == "de":
-                month_value = _month_number(tokens[index + 2])
-                year_value = default_year
-                if (
-                    index + 4 < len(tokens)
-                    and tokens[index + 3] == "de"
-                    and _safe_int(tokens[index + 4]) is not None
-                ):
-                    year_value = int(tokens[index + 4])
-                _register_date(
-                    candidates,
-                    year_value=year_value,
-                    month_value=month_value,
-                    day_value=day_value,
-                )
-
-            if index + 1 < len(tokens):
-                month_value = _month_number(tokens[index + 1])
-                year_value = default_year
-                if index + 2 < len(tokens) and _safe_int(tokens[index + 2]) is not None:
-                    year_value = int(tokens[index + 2])
-                _register_date(
-                    candidates,
-                    year_value=year_value,
-                    month_value=month_value,
-                    day_value=day_value,
-                )
+            _register_day_first_natural_date(
+                candidates,
+                tokens=tokens,
+                index=index,
+                day_value=day_value,
+                default_year=default_year,
+            )
             continue
 
-        month_value = _month_number(token)
-        if month_value is None or index + 1 >= len(tokens):
-            continue
-
-        day_value = _safe_int(tokens[index + 1])
-        year_value = default_year
-        if index + 2 < len(tokens) and _safe_int(tokens[index + 2]) is not None:
-            year_value = int(tokens[index + 2])
-        _register_date(
+        _register_month_first_natural_date(
             candidates,
-            year_value=year_value,
-            month_value=month_value,
-            day_value=day_value,
+            tokens=tokens,
+            index=index,
+            default_year=default_year,
         )
 
     return tuple(candidates.values())
+
+
+def _register_day_first_natural_date(
+    candidates: dict[str, date],
+    *,
+    tokens: tuple[str, ...],
+    index: int,
+    day_value: int,
+    default_year: int,
+) -> None:
+    if index + 2 < len(tokens) and tokens[index + 1] == "de":
+        year_value = _natural_date_year(tokens, index + 3, default_year, require_de=True)
+        _register_date(
+            candidates,
+            year_value=year_value,
+            month_value=_month_number(tokens[index + 2]),
+            day_value=day_value,
+        )
+
+    if index + 1 >= len(tokens):
+        return
+
+    year_value = _natural_date_year(tokens, index + 2, default_year)
+    _register_date(
+        candidates,
+        year_value=year_value,
+        month_value=_month_number(tokens[index + 1]),
+        day_value=day_value,
+    )
+
+
+def _register_month_first_natural_date(
+    candidates: dict[str, date],
+    *,
+    tokens: tuple[str, ...],
+    index: int,
+    default_year: int,
+) -> None:
+    if index + 1 >= len(tokens):
+        return
+
+    _register_date(
+        candidates,
+        year_value=_natural_date_year(tokens, index + 2, default_year),
+        month_value=_month_number(tokens[index]),
+        day_value=_safe_int(tokens[index + 1]),
+    )
+
+
+def _natural_date_year(
+    tokens: tuple[str, ...],
+    index: int,
+    default_year: int,
+    *,
+    require_de: bool = False,
+) -> int:
+    if require_de:
+        if index + 1 >= len(tokens) or tokens[index] != "de":
+            return default_year
+        year_value = _safe_int(tokens[index + 1])
+        return int(year_value) if year_value is not None else default_year
+
+    if index >= len(tokens):
+        return default_year
+    year_value = _safe_int(tokens[index])
+    return int(year_value) if year_value is not None else default_year
 
 
 def _extract_dates(question: str) -> tuple[date, ...]:
@@ -516,6 +553,32 @@ def _pp_label(value: float) -> str:
     return f"{value * 100:+.2f} pp"
 
 
+def _hourly_profile_point_tone(
+    *,
+    coverage_flag: str,
+    hour: int,
+    strongest_hour: int,
+) -> Literal["accent", "muted", "warning"]:
+    if coverage_flag == "low":
+        return "warning"
+    if hour == strongest_hour:
+        return "accent"
+    return "muted"
+
+
+def _daily_profile_point_tone(
+    *,
+    item_date: str,
+    strongest_date: str,
+    weakest_date: str,
+) -> Literal["accent", "muted", "warning"]:
+    if item_date == weakest_date:
+        return "warning"
+    if item_date == strongest_date:
+        return "accent"
+    return "muted"
+
+
 def _hourly_coverage_artifact(
     *,
     context: QuestionContext,
@@ -586,7 +649,7 @@ def _hourly_coverage_artifact(
             highlight=bool(item["highlight"]),
             tone="warning" if str(item["coverage_flag"]) == "low" else "accent",
         )
-        for item in list(summary["profile"])
+        for item in summary["profile"]
     ]
 
     return ChatArtifact(
@@ -1134,14 +1197,14 @@ def _hourly_coverage_profile_response(
                 "highlight": int(item["hour"]) == int(weakest_hour["hour"])
                 or int(item["hour"]) == int(strongest_hour["hour"]),
                 "tone": (
-                    "warning"
-                    if str(item["coverage_flag"]) == "low"
-                    else "accent"
-                    if int(item["hour"]) == int(strongest_hour["hour"])
-                    else "muted"
+                    _hourly_profile_point_tone(
+                        coverage_flag=str(item["coverage_flag"]),
+                        hour=int(item["hour"]),
+                        strongest_hour=int(strongest_hour["hour"]),
+                    )
                 ),
             }
-            for item in list(summary["profile"])
+            for item in summary["profile"]
         ],
         footnote=(
             "Cobertura = puntos observados / 360 esperados."
@@ -1307,14 +1370,14 @@ def _daily_coverage_profile_response(
                 "highlight": str(item["date"])
                 in {str(strongest_day["date"]), str(weakest_day["date"])},
                 "tone": (
-                    "warning"
-                    if str(item["date"]) == str(weakest_day["date"])
-                    else "accent"
-                    if str(item["date"]) == str(strongest_day["date"])
-                    else "muted"
+                    _daily_profile_point_tone(
+                        item_date=str(item["date"]),
+                        strongest_date=str(strongest_day["date"]),
+                        weakest_date=str(weakest_day["date"]),
+                    )
                 ),
             }
-            for item in list(summary["profile"])
+            for item in summary["profile"]
         ],
         footnote=(
             "Cobertura diaria = puntos observados / puntos esperados dentro de cada fecha."
@@ -1515,7 +1578,7 @@ def _weekend_coverage_report_response(
     weekend_high = summary["weekend_high"]
     weekend = summary["weekend"]
     weekday = summary["weekday"]
-    weekend_points = list(summary["weekend_points"])
+    weekend_points = summary["weekend_points"]
     answer = (
         (
             f"Armé un reporte específico para fines de semana. En el rango seleccionado, la "
