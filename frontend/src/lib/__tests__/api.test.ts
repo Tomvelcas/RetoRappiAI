@@ -9,6 +9,8 @@ import {
 } from "@/lib/api";
 
 const fetchMock = vi.fn();
+const expectedApiBaseUrl =
+  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ?? "http://localhost:8418";
 
 describe("api client", () => {
   afterEach(() => {
@@ -30,7 +32,7 @@ describe("api client", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:8418/api/v1/metrics/overview?start_date=2026-04-01&end_date=2026-04-20&limit=5",
+      `${expectedApiBaseUrl}/api/v1/metrics/overview?start_date=2026-04-01&end_date=2026-04-20&limit=5`,
       expect.objectContaining({
         cache: "no-store",
         headers: { "Content-Type": "application/json" },
@@ -52,23 +54,27 @@ describe("api client", () => {
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
-      "http://localhost:8418/api/v1/metrics/coverage-extremes?limit=3",
+      `${expectedApiBaseUrl}/api/v1/metrics/coverage-extremes?limit=3`,
       expect.any(Object),
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
-      "http://localhost:8418/api/v1/metrics/day-briefing?target_date=2026-04-18&anomaly_limit=3",
+      `${expectedApiBaseUrl}/api/v1/metrics/day-briefing?target_date=2026-04-18&anomaly_limit=3`,
       expect.any(Object),
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       3,
-      "http://localhost:8418/api/v1/chat/query",
+      `${expectedApiBaseUrl}/api/v1/chat/query`,
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({ question: "Explain the biggest dip" }),
       }),
     );
-    expect(fetchMock).toHaveBeenNthCalledWith(4, "http://localhost:8418/health", expect.any(Object));
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      4,
+      `${expectedApiBaseUrl}/health`,
+      expect.any(Object),
+    );
   });
 
   it("surfaces API error details when the backend returns them", async () => {
