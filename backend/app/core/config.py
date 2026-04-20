@@ -88,7 +88,7 @@ class Settings(BaseSettings):
         value = value.strip()
         if not value:
             return []
-        if value.startswith("["):
+        if value.startswith("[") or value.startswith("{"):
             parsed = json.loads(value)
             if not isinstance(parsed, list):
                 msg = "Expected a JSON list."

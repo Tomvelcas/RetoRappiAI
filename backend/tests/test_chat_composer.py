@@ -82,7 +82,7 @@ def test_compose_answer_for_answer_mode_adds_confidence_and_artifact_in_english(
     answer = compose_answer(payload)
 
     assert "This readout carries medium confidence." in answer
-    assert "I also left" in answer
+    assert "You can use" in answer
 
 
 def test_compose_follow_ups_dedupes_and_limits_suggestions() -> None:
