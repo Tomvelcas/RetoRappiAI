@@ -8,18 +8,7 @@ from urllib import error
 
 import pytest
 
-from app.chat.llm_client import (
-    LLMConfigurationError,
-    LLMRequestError,
-    _collect_web_sources,
-    _coerce_jsonish_payload,
-    _extract_output_text,
-    _normalize_list,
-    _parse_enrichment_result,
-    _user_safe_request_error,
-    generate_openai_enrichment,
-    generate_openai_web_research,
-)
+from app.chat import llm_client
 from app.core.config import Settings
 from app.schemas.chat import ChatEvidenceItem, ChatQueryRequest, ChatQueryResponse
 
@@ -72,7 +61,7 @@ def test_parse_enrichment_result_accepts_fenced_json() -> None:
         ```"""
     }
 
-    result = _parse_enrichment_result(
+    result = llm_client._parse_enrichment_result(
         response_body,
         provider="openai",
         model="gpt-5-mini",
@@ -97,7 +86,7 @@ def test_parse_enrichment_result_accepts_json_embedded_in_prose() -> None:
         )
     }
 
-    result = _parse_enrichment_result(
+    result = llm_client._parse_enrichment_result(
         response_body,
         provider="openai",
         model="gpt-5-mini",
@@ -122,7 +111,7 @@ def test_parse_enrichment_result_accepts_relaxed_sectioned_text() -> None:
         """
     }
 
-    result = _parse_enrichment_result(
+    result = llm_client._parse_enrichment_result(
         response_body,
         provider="openai",
         model="gpt-5-mini",
@@ -147,7 +136,7 @@ def test_parse_enrichment_result_accepts_python_style_dict() -> None:
         )
     }
 
-    result = _parse_enrichment_result(
+    result = llm_client._parse_enrichment_result(
         response_body,
         provider="openai",
         model="gpt-5-mini",
@@ -158,8 +147,8 @@ def test_parse_enrichment_result_accepts_python_style_dict() -> None:
 
 
 def test_parse_enrichment_result_rejects_missing_answer() -> None:
-    with pytest.raises(LLMRequestError, match="usable answer"):
-        _parse_enrichment_result(
+    with pytest.raises(llm_client.LLMRequestError, match="usable answer"):
+        llm_client._parse_enrichment_result(
             {
                 "output_text": (
                     '{"answer":"","hypotheses":[],"follow_up_questions":[],"caveats":[]}'
@@ -171,7 +160,7 @@ def test_parse_enrichment_result_rejects_missing_answer() -> None:
 
 
 def test_extract_output_text_reads_nested_message_fragments() -> None:
-    output_text = _extract_output_text(
+    output_text = llm_client._extract_output_text(
         {
             "output": [
                 {
@@ -189,7 +178,7 @@ def test_extract_output_text_reads_nested_message_fragments() -> None:
 
 
 def test_coerce_jsonish_payload_accepts_trailing_commas() -> None:
-    parsed = _coerce_jsonish_payload(
+    parsed = llm_client._coerce_jsonish_payload(
         '{"answer":"ok","hypotheses":["x",],"follow_up_questions":[],"caveats":[]}'
     )
 
@@ -198,12 +187,12 @@ def test_coerce_jsonish_payload_accepts_trailing_commas() -> None:
 
 
 def test_normalize_list_discards_empty_values() -> None:
-    assert _normalize_list([" a ", "", "   ", "b"]) == ("a", "b")
-    assert _normalize_list("not-a-list") == ()
+    assert llm_client._normalize_list([" a ", "", "   ", "b"]) == ("a", "b")
+    assert llm_client._normalize_list("not-a-list") == ()
 
 
 def test_collect_web_sources_reads_tools_and_annotations_without_duplicates() -> None:
-    sources = _collect_web_sources(
+    sources = llm_client._collect_web_sources(
         {
             "output": [
                 {
@@ -239,10 +228,10 @@ def test_collect_web_sources_reads_tools_and_annotations_without_duplicates() ->
 
 
 def test_user_safe_request_error_sanitizes_common_provider_failures() -> None:
-    assert _user_safe_request_error("Invalid API key supplied.") == (
+    assert llm_client._user_safe_request_error("Invalid API key supplied.") == (
         "The narrative polish service rejected the API key."
     )
-    assert _user_safe_request_error("Request timed out after 30 seconds.") == (
+    assert llm_client._user_safe_request_error("Request timed out after 30 seconds.") == (
         "The narrative polish service timed out."
     )
 
@@ -251,15 +240,15 @@ def test_generate_openai_enrichment_rejects_missing_configuration() -> None:
     chat_request = ChatQueryRequest(question="What happened?", use_llm=True)
     grounded_response = _grounded_response()
 
-    with pytest.raises(LLMConfigurationError, match="disabled"):
-        generate_openai_enrichment(
+    with pytest.raises(llm_client.LLMConfigurationError, match="disabled"):
+        llm_client.generate_openai_enrichment(
             chat_request,
             grounded_response,
             settings=Settings(LLM_ENABLED=False),
         )
 
-    with pytest.raises(LLMConfigurationError, match="Unsupported LLM provider"):
-        generate_openai_enrichment(
+    with pytest.raises(llm_client.LLMConfigurationError, match="Unsupported LLM provider"):
+        llm_client.generate_openai_enrichment(
             chat_request,
             grounded_response,
             settings=Settings(
@@ -269,8 +258,8 @@ def test_generate_openai_enrichment_rejects_missing_configuration() -> None:
             ),
         )
 
-    with pytest.raises(LLMConfigurationError, match="OPENAI_API_KEY"):
-        generate_openai_enrichment(
+    with pytest.raises(llm_client.LLMConfigurationError, match="OPENAI_API_KEY"):
+        llm_client.generate_openai_enrichment(
             chat_request,
             grounded_response,
             settings=Settings(LLM_ENABLED=True, LLM_PROVIDER="openai"),
@@ -294,7 +283,7 @@ def test_generate_openai_enrichment_successfully_builds_request(monkeypatch) -> 
 
     monkeypatch.setattr("app.chat.llm_client.request.urlopen", _fake_urlopen)
 
-    result = generate_openai_enrichment(
+    result = llm_client.generate_openai_enrichment(
         ChatQueryRequest(
             question="What happened?",
             use_llm=True,
@@ -330,8 +319,8 @@ def test_generate_openai_enrichment_maps_http_and_network_failures(monkeypatch) 
         lambda *args, **kwargs: (_ for _ in ()).throw(http_error),
     )
 
-    with pytest.raises(LLMRequestError, match="rejected the API key"):
-        generate_openai_enrichment(
+    with pytest.raises(llm_client.LLMRequestError, match="rejected the API key"):
+        llm_client.generate_openai_enrichment(
             ChatQueryRequest(question="What happened?", use_llm=True),
             _grounded_response(),
             settings=Settings(LLM_ENABLED=True, LLM_PROVIDER="openai", OPENAI_API_KEY="key"),
@@ -342,8 +331,8 @@ def test_generate_openai_enrichment_maps_http_and_network_failures(monkeypatch) 
         lambda *args, **kwargs: (_ for _ in ()).throw(error.URLError("offline")),
     )
 
-    with pytest.raises(LLMRequestError, match="could not be reached"):
-        generate_openai_enrichment(
+    with pytest.raises(llm_client.LLMRequestError, match="could not be reached"):
+        llm_client.generate_openai_enrichment(
             ChatQueryRequest(question="What happened?", use_llm=True),
             _grounded_response(),
             settings=Settings(LLM_ENABLED=True, LLM_PROVIDER="openai", OPENAI_API_KEY="key"),
@@ -373,7 +362,7 @@ def test_generate_openai_web_research_returns_sources(monkeypatch) -> None:
 
     monkeypatch.setattr("app.chat.llm_client.request.urlopen", _fake_urlopen)
 
-    result = generate_openai_web_research(
+    result = llm_client.generate_openai_web_research(
         ChatQueryRequest(
             question="Why did coverage drop?",
             use_llm=True,
