@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from app.chat.llm_client import LLMConfigurationError
-from app.schemas.chat import ChatQueryResponse
+from app.chat.llm_client import LLMConfigurationError, LLMRequestError, LLMWebResearchResult
+from app.schemas.chat import ChatExternalSource, ChatQueryResponse
 
 
 def test_chat_rejects_store_level_question(client: TestClient) -> None:
@@ -41,6 +41,29 @@ def test_chat_supports_intraday_pattern_question(client: TestClient) -> None:
     assert payload["follow_up_questions"]
 
 
+def test_chat_supports_hourly_coverage_lookup_with_natural_date(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/chat/query",
+        json={"question": "¿Cuál fue la hora con menor cobertura el 11 de febrero?"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+
+    assert payload["intent"] == "hourly_coverage_lookup"
+    assert payload["supported"] is True
+    assert payload["analysis_steps"]
+    assert payload["artifacts"]
+    assert payload["artifacts"][0]["kind"] == "hourly_coverage_chart"
+    assert payload["source_tables"] == [
+        "availability_hourly.csv",
+        "availability_quality_report.json",
+    ]
+    assert "15:00-15:59" in payload["answer"]
+    assert payload["time_window"]["effective_start"] == "2026-02-11"
+    assert payload["time_window"]["effective_end"] == "2026-02-11"
+
+
 def test_chat_supports_quality_question(client: TestClient) -> None:
     response = client.post(
         "/api/v1/chat/query",
@@ -54,6 +77,131 @@ def test_chat_supports_quality_question(client: TestClient) -> None:
     assert payload["supported"] is True
     assert payload["time_window"]["effective_start"] == "2026-02-10"
     assert payload["time_window"]["effective_end"] == "2026-02-10"
+
+
+def test_chat_supports_hourly_coverage_profile_chart_request(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/chat/query",
+        json={
+            "question": (
+                "Genéreme un gráfico de barras para mostrar cómo se comportan los "
+                "horarios a lo largo del mes de febrero y su cobertura."
+            )
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+
+    assert payload["intent"] == "hourly_coverage_profile"
+    assert payload["supported"] is True
+    assert payload["artifacts"]
+    assert payload["artifacts"][0]["kind"] == "bar_chart"
+    assert payload["source_tables"] == ["availability_hourly.csv"]
+
+
+def test_chat_supports_daily_coverage_profile_chart_request(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/chat/query",
+        json={
+            "question": (
+                "Podría entregarme un gráfico que compare la cobertura total de todos "
+                "los días que tenemos en febrero."
+            )
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+
+    assert payload["intent"] == "daily_coverage_profile"
+    assert payload["supported"] is True
+    assert payload["artifacts"]
+    assert payload["artifacts"][0]["kind"] == "bar_chart"
+    assert payload["source_tables"] == ["availability_daily.csv"]
+
+
+def test_chat_supports_weekday_weekend_comparison_question(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/chat/query",
+        json={
+            "question": (
+                "Entrégueme conclusiones claras sobre cómo se comporta entre semana "
+                "vs fines de semana la cobertura."
+            )
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+
+    assert payload["intent"] == "weekday_weekend_comparison"
+    assert payload["supported"] is True
+    assert payload["artifacts"]
+    assert payload["analysis_steps"]
+    assert payload["source_tables"] == ["availability_daily.csv"]
+
+
+def test_chat_supports_weekend_report_question(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/chat/query",
+        json={
+            "question": (
+                "Cree un reporte detallado de cómo fue fluctuando la cobertura "
+                "en fines de semana."
+            )
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+
+    assert payload["intent"] == "weekend_coverage_report"
+    assert payload["supported"] is True
+    assert payload["artifacts"]
+    assert payload["artifacts"][0]["kind"] == "bar_chart"
+
+
+def test_chat_reuses_conversation_context_for_follow_up(
+    client: TestClient,
+    monkeypatch,
+    tmp_path,
+) -> None:
+    from app.chat.memory import ConversationMemory
+
+    temp_memory = ConversationMemory(tmp_path / "chat_memory.sqlite3")
+    monkeypatch.setattr(
+        "app.services.chat_service.get_conversation_memory",
+        lambda settings=None: temp_memory,
+    )
+
+    first = client.post(
+        "/api/v1/chat/query",
+        json={
+            "conversation_id": "session-follow-up",
+            "question": (
+                "Genéreme un gráfico de barras para mostrar cómo se comportan los "
+                "horarios a lo largo del mes de febrero y su cobertura."
+            ),
+        },
+    )
+    assert first.status_code == 200
+
+    second = client.post(
+        "/api/v1/chat/query",
+        json={
+            "conversation_id": "session-follow-up",
+            "question": "Ahora conviértalo en conclusiones claras.",
+        },
+    )
+
+    assert second.status_code == 200
+    payload = second.json()
+
+    assert payload["intent"] == "hourly_coverage_profile"
+    assert "inherited_context=True" in payload["reasoning_scope"]
+    assert payload["time_window"]["effective_start"] == "2026-02-01"
+    assert payload["time_window"]["effective_end"] == "2026-02-11"
 
 
 def test_chat_supports_coverage_extremes_question(client: TestClient) -> None:
@@ -117,6 +265,89 @@ def test_chat_falls_back_when_llm_is_requested_but_disabled(
     assert payload["answer_mode"] == "deterministic_fallback"
     assert payload["llm_used"] is False
     assert payload["warnings"]
+
+
+def test_chat_hides_provider_internals_when_llm_request_fails(
+    client: TestClient,
+    monkeypatch,
+) -> None:
+    def _raise_request_error(*args, **kwargs) -> None:
+        raise LLMRequestError(
+            "The narrative polish service was temporarily unavailable. Please include request id req_123."
+        )
+
+    monkeypatch.setattr("app.chat.enrichment.generate_openai_enrichment", _raise_request_error)
+
+    response = client.post(
+        "/api/v1/chat/query",
+        json={
+            "question": "¿Qué pasó el 2026-02-11 y qué decisión podría tomar?",
+            "use_llm": True,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+
+    assert payload["answer_mode"] == "deterministic_fallback"
+    assert "req_123" not in " ".join(payload["warnings"])
+
+
+def test_chat_can_add_web_research_hypotheses_when_requested(
+    client: TestClient,
+    monkeypatch,
+) -> None:
+    def _raise_request_error(*args, **kwargs) -> None:
+        raise LLMRequestError("The narrative polish service returned an unusable response.")
+
+    def _fake_web_research(*args, **kwargs) -> LLMWebResearchResult:
+        return LLMWebResearchResult(
+            summary=(
+                "public reporting around that date suggests a temporary platform disruption "
+                "may have affected observability."
+            ),
+            hypotheses=(
+                "A temporary platform or monitoring disruption may have reduced observed coverage.",
+            ),
+            follow_up_questions=("Do you want the outside context separated from the dataset view?",),
+            caveats=("Public reporting is suggestive, not a confirmed root cause.",),
+            sources=(
+                ChatExternalSource(
+                    title="Example source",
+                    url="https://example.com/source",
+                    domain="example.com",
+                ),
+            ),
+            provider="openai",
+            model="gpt-5-mini",
+        )
+
+    monkeypatch.setattr("app.chat.enrichment.generate_openai_enrichment", _raise_request_error)
+    monkeypatch.setattr("app.chat.enrichment.generate_openai_web_research", _fake_web_research)
+
+    response = client.post(
+        "/api/v1/chat/query",
+        json={
+            "question": (
+                "¿Cuál fue el día con menor cobertura y cuál cree que es la razón de esto? "
+                "Si considera necesario, búsquelo en internet."
+            ),
+            "use_llm": True,
+            "allow_hypotheses": True,
+            "allow_web_research": True,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+
+    assert payload["answer_mode"] == "llm_enhanced"
+    assert payload["llm_used"] is True
+    assert payload["web_research_used"] is True
+    assert payload["hypotheses"]
+    assert payload["web_sources"]
+    assert "búsquelo en internet" not in payload["answer"].lower()
+    assert "contexto tentativo" in payload["answer"].lower()
 
 
 def test_chat_can_return_llm_enhanced_payload(

@@ -102,7 +102,7 @@ export function modeLabel(value: string): string {
   }
 
   if (value === "deterministic_fallback") {
-    return "grounded fallback";
+    return "polish unavailable";
   }
 
   return "grounded";

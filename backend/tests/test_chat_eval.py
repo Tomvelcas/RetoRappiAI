@@ -10,6 +10,27 @@ from fastapi.testclient import TestClient
     ("question", "expected_intent", "supported"),
     [
         ("¿Qué horas suelen ser más altas?", "intraday_pattern", True),
+        (
+            "¿Cuál fue la hora con menor cobertura el 11 de febrero?",
+            "hourly_coverage_lookup",
+            True,
+        ),
+        (
+            (
+                "Entrégueme conclusiones claras sobre cómo se comporta entre semana "
+                "vs fines de semana la cobertura."
+            ),
+            "weekday_weekend_comparison",
+            True,
+        ),
+        (
+            (
+                "Podría entregarme un gráfico que compare la cobertura total de todos "
+                "los días que tenemos en febrero."
+            ),
+            "daily_coverage_profile",
+            True,
+        ),
         ("What days had the lowest coverage?", "coverage_extremes", True),
         ("¿Qué pasó el 2026-02-10?", "day_briefing", True),
         (

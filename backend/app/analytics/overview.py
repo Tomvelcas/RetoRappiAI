@@ -79,6 +79,11 @@ def format_delta_label(current: float, previous: float | None, suffix: str = "")
     return f"{pct_delta:+.1f}% vs. prior comparable period"
 
 
+def _hourly_coverage_ratio(row: HourlyMetric) -> float:
+    """Compute observed hourly coverage against the expected ten-second cadence."""
+    return min(row.n_points / 360.0, 1.0)
+
+
 def _dataset() -> tuple[
     tuple[DailyMetric, ...],
     tuple[HourlyMetric, ...],
@@ -286,6 +291,12 @@ def _build_time_window_payload(selection: DateSelection) -> dict[str, object]:
 def build_time_window_payload(selection: DateSelection) -> dict[str, object]:
     """Expose the resolved time-window payload to callers outside this module."""
     return _build_time_window_payload(selection)
+
+
+def get_observed_dataset_window() -> tuple[datetime, datetime]:
+    """Expose the observed dataset bounds for natural-language date parsing."""
+    _, _, _, _, quality = _dataset()
+    return quality.observed_start, quality.observed_end
 
 
 def _build_quality_payload(selection: DateSelection) -> dict[str, object]:
@@ -694,6 +705,226 @@ def build_intraday_summary(selection: DateSelection) -> dict[str, object]:
         "peak_hour": peak_hour,
         "low_hour": low_hour,
         "profile": profile,
+    }
+
+
+def _hourly_bucket_payload(row: HourlyMetric) -> dict[str, object]:
+    coverage_ratio = _hourly_coverage_ratio(row)
+    return {
+        "date": row.date,
+        "hour": row.hour,
+        "label": format_hour_label(row.hour),
+        "hour_bucket": row.hour_bucket,
+        "n_points": row.n_points,
+        "mean_signal": row.mean_value,
+        "coverage_ratio": coverage_ratio,
+        "coverage_flag": coverage_flag(coverage_ratio),
+    }
+
+
+def _boundary_truncation_note(row: HourlyMetric) -> str | None:
+    _, _, _, _, quality = _dataset()
+    if (
+        row.date == quality.observed_end.date()
+        and row.hour == quality.observed_end.hour
+        and row.n_points < 360
+    ):
+        return (
+            "This bucket is truncated by the observed dataset end, so it should be read as "
+            "an incomplete closing hour rather than a confirmed operational drop."
+        )
+    if (
+        row.date == quality.observed_start.date()
+        and row.hour == quality.observed_start.hour
+        and row.n_points < 360
+    ):
+        return (
+            "This bucket starts after the observed dataset opening timestamp, so it is "
+            "partially observed rather than fully missing."
+        )
+    return None
+
+
+def build_hourly_coverage_summary(
+    selection: DateSelection,
+    *,
+    direction: Literal["lowest", "highest"] = "lowest",
+) -> dict[str, object]:
+    """Return a deterministic ranking of hourly coverage buckets for the selection."""
+    selected_rows = _filter_hourly(selection)
+    if not selected_rows:
+        msg = "No hourly metrics are available for the selected date range."
+        raise LookupError(msg)
+
+    reverse = direction == "highest"
+    ranked_selection = sorted(
+        selected_rows,
+        key=lambda row: (_hourly_coverage_ratio(row), row.date, row.hour),
+        reverse=reverse,
+    )
+    focus_row = ranked_selection[0]
+    runner_up_row = ranked_selection[1] if len(ranked_selection) > 1 else None
+    all_hourly_rows = list(_dataset()[1])
+    ranked_dataset = sorted(
+        all_hourly_rows,
+        key=lambda row: (_hourly_coverage_ratio(row), row.date, row.hour),
+        reverse=reverse,
+    )
+    global_rank = next(
+        index
+        for index, row in enumerate(ranked_dataset, start=1)
+        if row.date == focus_row.date and row.hour == focus_row.hour
+    )
+    coverage_values = [_hourly_coverage_ratio(row) for row in selected_rows]
+    median_coverage_ratio = median(coverage_values)
+    reference_row = max(selected_rows, key=_hourly_coverage_ratio)
+    if direction == "highest":
+        reference_row = min(selected_rows, key=_hourly_coverage_ratio)
+
+    profile = [
+        {
+            **_hourly_bucket_payload(row),
+            "highlight": row.date == focus_row.date and row.hour == focus_row.hour,
+        }
+        for row in sorted(selected_rows, key=lambda row: (row.date, row.hour))
+    ]
+    boundary_note = _boundary_truncation_note(focus_row)
+    focus_coverage = _hourly_coverage_ratio(focus_row)
+    runner_up_coverage = (
+        _hourly_coverage_ratio(runner_up_row) if runner_up_row is not None else None
+    )
+
+    return {
+        "direction": direction,
+        "focus_bucket": _hourly_bucket_payload(focus_row),
+        "runner_up_bucket": (
+            _hourly_bucket_payload(runner_up_row) if runner_up_row is not None else None
+        ),
+        "reference_bucket": _hourly_bucket_payload(reference_row),
+        "selection_median_coverage_ratio": median_coverage_ratio,
+        "selection_bucket_count": len(selected_rows),
+        "coverage_gap_vs_median": focus_coverage - median_coverage_ratio,
+        "coverage_gap_vs_runner_up": (
+            focus_coverage - runner_up_coverage
+            if runner_up_coverage is not None
+            else None
+        ),
+        "global_rank": global_rank,
+        "global_bucket_count": len(ranked_dataset),
+        "boundary_note": boundary_note,
+        "coverage_formula": "observed hourly points / 360 expected ten-second samples",
+        "profile": profile,
+    }
+
+
+def build_hourly_coverage_profile_summary(selection: DateSelection) -> dict[str, object]:
+    """Return coverage-by-hour profile across the selected range."""
+    selected_rows = _filter_hourly(selection)
+    if not selected_rows:
+        msg = "No hourly metrics are available for the selected date range."
+        raise LookupError(msg)
+
+    buckets: dict[int, list[HourlyMetric]] = defaultdict(list)
+    for row in selected_rows:
+        buckets[row.hour].append(row)
+
+    profile: list[dict[str, object]] = []
+    for hour in sorted(buckets):
+        hour_rows = buckets[hour]
+        avg_coverage_ratio = fmean(_hourly_coverage_ratio(row) for row in hour_rows)
+        profile.append(
+            {
+                "hour": hour,
+                "label": format_hour_label(hour),
+                "coverage_ratio": avg_coverage_ratio,
+                "coverage_flag": coverage_flag(avg_coverage_ratio),
+                "mean_signal": fmean(row.mean_value for row in hour_rows),
+                "sample_days": len(hour_rows),
+                "avg_points": fmean(row.n_points for row in hour_rows),
+            }
+        )
+
+    strongest_hour = max(profile, key=lambda item: float(item["coverage_ratio"]))
+    weakest_hour = min(profile, key=lambda item: float(item["coverage_ratio"]))
+    return {
+        "profile": profile,
+        "strongest_hour": strongest_hour,
+        "weakest_hour": weakest_hour,
+        "selection_bucket_count": len(selected_rows),
+    }
+
+
+def build_daily_coverage_profile_summary(selection: DateSelection) -> dict[str, object]:
+    """Return deterministic daily coverage points across the selected range."""
+    daily_rows = _filter_daily(selection)
+    profile = [_daily_coverage_point(row) for row in daily_rows]
+    strongest_day = max(profile, key=lambda item: float(item["coverage_ratio"]))
+    weakest_day = min(profile, key=lambda item: float(item["coverage_ratio"]))
+    coverage_values = [float(item["coverage_ratio"]) for item in profile]
+    mean_coverage = fmean(coverage_values)
+    median_coverage = median(coverage_values)
+    return {
+        "profile": profile,
+        "strongest_day": strongest_day,
+        "weakest_day": weakest_day,
+        "selection_day_count": len(profile),
+        "mean_coverage_ratio": mean_coverage,
+        "median_coverage_ratio": median_coverage,
+        "coverage_spread": float(strongest_day["coverage_ratio"]) - float(weakest_day["coverage_ratio"]),
+        "weakest_gap_vs_median": float(weakest_day["coverage_ratio"]) - median_coverage,
+        "strongest_gap_vs_median": float(strongest_day["coverage_ratio"]) - median_coverage,
+    }
+
+
+def _is_weekend_day(value: date) -> bool:
+    return value.weekday() >= 5
+
+
+def _daily_coverage_point(row: DailyMetric) -> dict[str, object]:
+    return {
+        "date": row.date,
+        "label": row.date.isoformat(),
+        "coverage_ratio": row.coverage_ratio_in_observed_span,
+        "coverage_flag": coverage_flag(row.coverage_ratio_in_observed_span),
+        "mean_signal": row.mean_value,
+        "n_points": row.n_points,
+    }
+
+
+def build_weekday_weekend_summary(selection: DateSelection) -> dict[str, object]:
+    """Return deterministic weekday vs weekend coverage comparison data."""
+    daily_rows = _filter_daily(selection)
+    weekday_rows = [row for row in daily_rows if not _is_weekend_day(row.date)]
+    weekend_rows = [row for row in daily_rows if _is_weekend_day(row.date)]
+    if not weekday_rows or not weekend_rows:
+        msg = "The selected range needs both weekday and weekend coverage to compare them."
+        raise LookupError(msg)
+
+    weekday_coverage = _aggregate_coverage(weekday_rows)
+    weekend_coverage = _aggregate_coverage(weekend_rows)
+    coverage_gap = weekend_coverage - weekday_coverage
+    weekend_low = min(weekend_rows, key=lambda row: row.coverage_ratio_in_observed_span)
+    weekend_high = max(weekend_rows, key=lambda row: row.coverage_ratio_in_observed_span)
+    return {
+        "weekday": {
+            "label": "weekday",
+            "coverage_ratio": weekday_coverage,
+            "coverage_flag": coverage_flag(weekday_coverage),
+            "mean_signal": _weighted_mean_signal(weekday_rows),
+            "day_count": len(weekday_rows),
+        },
+        "weekend": {
+            "label": "weekend",
+            "coverage_ratio": weekend_coverage,
+            "coverage_flag": coverage_flag(weekend_coverage),
+            "mean_signal": _weighted_mean_signal(weekend_rows),
+            "day_count": len(weekend_rows),
+        },
+        "coverage_gap": coverage_gap,
+        "weekday_points": [_daily_coverage_point(row) for row in weekday_rows],
+        "weekend_points": [_daily_coverage_point(row) for row in weekend_rows],
+        "weekend_low": _daily_coverage_point(weekend_low),
+        "weekend_high": _daily_coverage_point(weekend_high),
     }
 
 

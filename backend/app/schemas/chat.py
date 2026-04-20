@@ -33,6 +33,13 @@ class ChatQueryRequest(BaseModel):
             "possible explanations."
         ),
     )
+    allow_web_research: bool = Field(
+        default=False,
+        description=(
+            "Allow optional web research for external context when the user asks for "
+            "causes, reasons, or public context beyond the dataset."
+        ),
+    )
     external_context: str | None = Field(
         default=None,
         max_length=2_000,
@@ -57,6 +64,7 @@ class ChatQueryRequest(BaseModel):
                     ),
                     "use_llm": True,
                     "allow_hypotheses": True,
+                    "allow_web_research": True,
                     "external_context": (
                         "Ese fin de semana hubo una jornada promocional y "
                         "reportes internos de latencia."
@@ -75,6 +83,45 @@ class ChatEvidenceItem(BaseModel):
     source: str
 
 
+class ChatArtifactCard(BaseModel):
+    """Compact metric card rendered inside a richer assistant response."""
+
+    label: str
+    value: str
+    detail: str | None = None
+    tone: Literal["default", "accent", "warning", "muted"] = "default"
+
+
+class ChatArtifactPoint(BaseModel):
+    """Single visual point used by lightweight chat charts."""
+
+    label: str
+    value: float
+    formatted_value: str
+    detail: str | None = None
+    highlight: bool = False
+    tone: Literal["default", "accent", "warning", "muted"] = "default"
+
+
+class ChatArtifact(BaseModel):
+    """Structured visual artifact attached to a chat answer."""
+
+    kind: Literal["hourly_coverage_chart", "bar_chart"]
+    title: str
+    subtitle: str | None = None
+    cards: list[ChatArtifactCard] = Field(default_factory=list)
+    points: list[ChatArtifactPoint] = Field(default_factory=list)
+    footnote: str | None = None
+
+
+class ChatExternalSource(BaseModel):
+    """External web source used to enrich tentative hypotheses."""
+
+    title: str
+    url: str
+    domain: str
+
+
 class ChatQueryResponse(BaseModel):
     """Structured grounded response for the chat UI."""
 
@@ -89,8 +136,12 @@ class ChatQueryResponse(BaseModel):
     llm_provider: str | None = None
     llm_model: str | None = None
     external_context_used: bool = False
+    web_research_used: bool = False
+    analysis_steps: list[str] = Field(default_factory=list)
     evidence: list[ChatEvidenceItem]
+    artifacts: list[ChatArtifact] = Field(default_factory=list)
     hypotheses: list[str] = Field(default_factory=list)
+    web_sources: list[ChatExternalSource] = Field(default_factory=list)
     follow_up_questions: list[str] = Field(default_factory=list)
     warnings: list[str]
     source_tables: list[str]

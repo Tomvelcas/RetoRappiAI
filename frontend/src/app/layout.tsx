@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import { Bricolage_Grotesque, IBM_Plex_Sans } from "next/font/google";
+import { Fraunces, IBM_Plex_Sans } from "next/font/google";
 
 import { SiteNav } from "@/components/site-nav";
 
 import "./globals.css";
 
-const headingFont = Bricolage_Grotesque({
+const headingFont = Fraunces({
   subsets: ["latin"],
   variable: "--font-heading",
 });
@@ -17,8 +17,8 @@ const bodyFont = IBM_Plex_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Signal Atlas",
-  description: "Visual control room for historical availability signals and grounded chat.",
+  title: "Panel de disponibilidad",
+  description: "Dashboard visual y copiloto analítico para explorar históricos de disponibilidad.",
 };
 
 export default function RootLayout({
@@ -27,7 +27,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="es">
       <body className={`${headingFont.variable} ${bodyFont.variable}`}>
         <div className="relative min-h-screen">
           <SiteNav />

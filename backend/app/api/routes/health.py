@@ -16,4 +16,15 @@ def healthcheck() -> HealthResponse:
         status="ok",
         service=settings.app_name,
         environment=settings.app_env,
+        llm={
+            "enabled": settings.llm_enabled,
+            "ready": settings.llm_ready,
+            "provider": settings.llm_provider,
+            "model": settings.openai_model if settings.llm_ready else None,
+            "auto_mode": settings.chat_auto_llm,
+        },
+        chat={
+            "memory_enabled": settings.chat_memory_enabled,
+            "memory_backend": "sqlite" if settings.chat_memory_enabled else "disabled",
+        },
     )

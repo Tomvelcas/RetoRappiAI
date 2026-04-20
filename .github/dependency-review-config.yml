@@ -1,0 +1,6 @@
+fail-on-severity: high
+fail-on-scopes:
+  - runtime
+retry-on-snapshot-warnings: true
+license-check: true
+vulnerability-check: true

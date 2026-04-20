@@ -1,8 +1,6 @@
 """Settings parsing tests."""
 
-from pathlib import Path
-
-from app.core.config import Settings
+from app.core.config import ROOT_DIR, Settings
 
 
 def test_cors_origins_accepts_plain_string() -> None:
@@ -50,4 +48,4 @@ def test_openai_api_key_whitespace_is_normalized_to_none() -> None:
 def test_processed_data_dir_falls_back_to_local_repo_path() -> None:
     settings = Settings(PROCESSED_DATA_DIR="/app/data/processed")
 
-    assert settings.processed_data_dir == Path.cwd().parent / "data" / "processed"
+    assert settings.processed_data_dir == ROOT_DIR / "data" / "processed"

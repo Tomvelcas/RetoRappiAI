@@ -8,6 +8,17 @@ export type BackendHealth = {
   status: string;
   service: string;
   environment: string;
+  llm: {
+    enabled: boolean;
+    ready: boolean;
+    provider: string;
+    model: string | null;
+    auto_mode: boolean;
+  };
+  chat: {
+    memory_enabled: boolean;
+    memory_backend: string;
+  };
 };
 
 export type TimeWindow = {
@@ -151,11 +162,43 @@ export type ChatEvidenceItem = {
   source: string;
 };
 
+export type ChatArtifactCard = {
+  label: string;
+  value: string;
+  detail: string | null;
+  tone: "default" | "accent" | "warning" | "muted";
+};
+
+export type ChatArtifactPoint = {
+  label: string;
+  value: number;
+  formatted_value: string;
+  detail: string | null;
+  highlight: boolean;
+  tone: "default" | "accent" | "warning" | "muted";
+};
+
+export type ChatArtifact = {
+  kind: "hourly_coverage_chart" | "bar_chart";
+  title: string;
+  subtitle: string | null;
+  cards: ChatArtifactCard[];
+  points: ChatArtifactPoint[];
+  footnote: string | null;
+};
+
+export type ChatExternalSource = {
+  title: string;
+  url: string;
+  domain: string;
+};
+
 export type ChatQueryRequest = {
   question: string;
   conversation_id?: string;
   use_llm?: boolean;
   allow_hypotheses?: boolean;
+  allow_web_research?: boolean;
   external_context?: string;
 };
 
@@ -169,8 +212,12 @@ export type ChatQueryResponse = {
   llm_provider: string | null;
   llm_model: string | null;
   external_context_used: boolean;
+  web_research_used: boolean;
+  analysis_steps: string[];
   evidence: ChatEvidenceItem[];
+  artifacts: ChatArtifact[];
   hypotheses: string[];
+  web_sources: ChatExternalSource[];
   follow_up_questions: string[];
   warnings: string[];
   source_tables: string[];
@@ -178,6 +225,48 @@ export type ChatQueryResponse = {
   disclaimer: string;
   time_window: TimeWindow | null;
 };
+
+export type MetricsQueryOptions = {
+  startDate?: string | null;
+  endDate?: string | null;
+  anomalyLimit?: number;
+  limit?: number;
+  targetDate?: string;
+  signal?: AbortSignal;
+};
+
+function buildMetricsQuery(options: MetricsQueryOptions, extra?: Record<string, string>): string {
+  const params = new URLSearchParams();
+
+  if (options.startDate) {
+    params.set("start_date", options.startDate);
+  }
+
+  if (options.endDate) {
+    params.set("end_date", options.endDate);
+  }
+
+  if (options.targetDate) {
+    params.set("target_date", options.targetDate);
+  }
+
+  if (typeof options.anomalyLimit === "number") {
+    params.set("anomaly_limit", String(options.anomalyLimit));
+  }
+
+  if (typeof options.limit === "number") {
+    params.set("limit", String(options.limit));
+  }
+
+  if (extra) {
+    for (const [key, value] of Object.entries(extra)) {
+      params.set(key, value);
+    }
+  }
+
+  const query = params.toString();
+  return query ? `?${query}` : "";
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -211,34 +300,36 @@ export function getBackendHealth(signal?: AbortSignal): Promise<BackendHealth> {
   return request<BackendHealth>("/health", { signal });
 }
 
-export function getMetricsOverview(signal?: AbortSignal): Promise<MetricsOverviewResponse> {
-  return request<MetricsOverviewResponse>("/api/v1/metrics/overview", { signal });
+export function getMetricsOverview(
+  options: MetricsQueryOptions = {},
+): Promise<MetricsOverviewResponse> {
+  return request<MetricsOverviewResponse>(
+    `/api/v1/metrics/overview${buildMetricsQuery(options)}`,
+    { signal: options.signal },
+  );
 }
 
 export function getCoverageExtremes(
-  limit = 3,
-  signal?: AbortSignal,
+  options: MetricsQueryOptions = {},
 ): Promise<MetricsCoverageExtremesResponse> {
   return request<MetricsCoverageExtremesResponse>(
-    `/api/v1/metrics/coverage-extremes?limit=${limit}`,
-    { signal },
+    `/api/v1/metrics/coverage-extremes${buildMetricsQuery({
+      ...options,
+      limit: options.limit ?? 3,
+    })}`,
+    { signal: options.signal },
   );
 }
 
 export function getDayBriefing(
-  targetDate?: string,
-  anomalyLimit = 3,
-  signal?: AbortSignal,
+  options: MetricsQueryOptions = {},
 ): Promise<MetricsDayBriefingResponse> {
-  const params = new URLSearchParams();
-  if (targetDate) {
-    params.set("target_date", targetDate);
-  }
-  params.set("anomaly_limit", String(anomalyLimit));
-
   return request<MetricsDayBriefingResponse>(
-    `/api/v1/metrics/day-briefing?${params.toString()}`,
-    { signal },
+    `/api/v1/metrics/day-briefing${buildMetricsQuery({
+      ...options,
+      anomalyLimit: options.anomalyLimit ?? 3,
+    })}`,
+    { signal: options.signal },
   );
 }
 

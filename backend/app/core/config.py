@@ -60,6 +60,18 @@ class Settings(BaseSettings):
         ge=100,
         le=4_000,
     )
+    chat_auto_llm: bool = Field(default=True, alias="CHAT_AUTO_LLM")
+    chat_memory_enabled: bool = Field(default=True, alias="CHAT_MEMORY_ENABLED")
+    chat_memory_db_path: Path = Field(
+        default=ROOT_DIR / ".local" / "chat_memory.sqlite3",
+        alias="CHAT_MEMORY_DB_PATH",
+    )
+    chat_memory_max_turns: int = Field(
+        default=8,
+        alias="CHAT_MEMORY_MAX_TURNS",
+        ge=2,
+        le=20,
+    )
 
     model_config = SettingsConfigDict(
         env_file=ROOT_DIR / ".env",
@@ -107,6 +119,16 @@ class Settings(BaseSettings):
             return local_default
         return value
 
+    @field_validator("chat_memory_db_path", mode="after")
+    @classmethod
+    def resolve_chat_memory_db_path(cls, value: Path) -> Path:
+        """Default chat memory to a repo-local sqlite file during local execution."""
+        if str(value).startswith("/app/") and not Path("/app").exists():
+            return ROOT_DIR / ".local" / value.name
+        if value.is_dir():
+            return value / "chat_memory.sqlite3"
+        return value
+
     @field_validator("llm_provider", mode="before")
     @classmethod
     def normalize_llm_provider(cls, value: str) -> str:
@@ -132,6 +154,15 @@ class Settings(BaseSettings):
             msg = "LLM_REASONING_EFFORT must be one of: minimal, low, medium, high."
             raise ValueError(msg)
         return normalized
+
+    @property
+    def llm_ready(self) -> bool:
+        """Return whether optional LLM enrichment is fully configured."""
+        if not self.llm_enabled:
+            return False
+        if self.llm_provider != "openai":
+            return False
+        return bool(self.openai_api_key)
 
 
 @lru_cache

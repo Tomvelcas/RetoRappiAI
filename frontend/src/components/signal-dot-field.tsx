@@ -5,11 +5,13 @@ import { useEffect, useRef } from "react";
 type SignalDotFieldProps = {
   className?: string;
   density?: number;
+  color?: string;
 };
 
 export function SignalDotField({
   className,
   density = 28,
+  color = "rgba(34, 27, 23, 0.18)",
 }: SignalDotFieldProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -65,7 +67,7 @@ export function SignalDotField({
       const height = parent.clientHeight;
 
       context.clearRect(0, 0, width, height);
-      context.fillStyle = "rgba(255, 255, 255, 0.42)";
+      context.fillStyle = color;
 
       for (const dot of dots) {
         const driftX = prefersReducedMotion
@@ -118,7 +120,7 @@ export function SignalDotField({
         window.cancelAnimationFrame(frameId);
       }
     };
-  }, [density]);
+  }, [color, density]);
 
   return <canvas className={className} ref={canvasRef} />;
 }

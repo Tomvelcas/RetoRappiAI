@@ -58,6 +58,44 @@ Además de los workflows incluidos, conviene habilitar en el repositorio:
 4. `Push protection`
 5. `Branch protection rules` con status checks obligatorios
 
+## Requisitos exactos para CodeQL y Dependency Review
+
+Los dos errores más comunes no vienen del YAML sino de la configuración del repositorio en GitHub.
+
+Debes revisar esto:
+
+1. `Settings > Security > Advanced Security > Code Security`
+2. `Settings > Security > Advanced Security > CodeQL analysis`
+3. `Settings > Security > Advanced Security > Dependency Graph`
+4. `Settings > Actions > General` y confirmar que GitHub Actions esté habilitado
+
+Qué habilitar:
+
+1. `Code Security`
+2. `CodeQL analysis`
+3. `Dependency Graph`
+
+Con este repositorio:
+
+- ya existe un workflow propio de CodeQL (`advanced setup` vía GitHub Actions);
+- no hace falta activar además `default setup` si quieres conservar este workflow;
+- si no tienes licencia de GitHub Code Security / GHAS, deja CodeQL deshabilitado en automático y no lo uses como check requerido;
+- el workflow quedó en modo manual para evitar ruido en CI mientras no tengas licencia.
+
+Importante:
+
+- Si el repositorio es `público`, CodeQL y Dependency Review deberían poder funcionar.
+- Si el repositorio es `privado`, GitHub exige `GitHub Code Security / GHAS` para estas capacidades en repositorios privados de organización.
+- Si el repositorio privado está en una cuenta personal o en una organización sin esa licencia, el workflow seguirá fallando aunque el YAML esté correcto.
+- En pull requests desde forks, GitHub restringe capacidades de seguridad; por eso los workflows deben tolerar esos casos y no asumir permisos de escritura.
+
+Qué checks conviene exigir en branch protection:
+
+1. `CI`
+2. `Dependency Review`
+
+Si en el futuro habilitas CodeQL con licencia, ahí sí conviene volver a exigir los checks de `analyze`.
+
 ## SonarQube / SonarCloud
 
 No es obligatorio para esta prueba.
@@ -73,6 +111,24 @@ SonarCloud puede mejorar la percepción del proyecto, pero no reemplaza:
 - auditoría de dependencias,
 - SAST,
 - ni evaluaciones del comportamiento del chatbot.
+
+### Configuración mínima para que Sonar lea coverage real
+
+El repositorio ahora deja listos estos reportes:
+
+- `backend/coverage.xml` desde `pytest --cov`
+- `frontend/coverage/lcov.info` desde `vitest`
+- `newman-report.xml` como evidencia de smoke tests de API
+
+Importante:
+
+- Newman fortalece la validación end-to-end, pero `no cuenta como code coverage` de Python o TypeScript.
+- Para que Sonar muestre cobertura de Python, debes usar análisis en CI y no solo `automatic analysis`.
+- Este repositorio ya deja fijos:
+  1. `SONAR_PROJECT_KEY=Tomvelcas_RetoRappiAI`
+  2. `SONAR_ORGANIZATION=tomvelcas`
+- En GitHub solo necesitas configurar el secreto `SONAR_TOKEN`.
+- El `SONAR_TOKEN` no es arbitrario: debe ser un token real generado en SonarQube Cloud con permiso para ejecutar análisis sobre ese proyecto.
 
 ## Qué NO estoy agregando por ahora
 
