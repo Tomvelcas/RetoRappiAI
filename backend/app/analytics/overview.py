@@ -870,7 +870,9 @@ def build_daily_coverage_profile_summary(selection: DateSelection) -> dict[str, 
         "selection_day_count": len(profile),
         "mean_coverage_ratio": mean_coverage,
         "median_coverage_ratio": median_coverage,
-        "coverage_spread": float(strongest_day["coverage_ratio"]) - float(weakest_day["coverage_ratio"]),
+        "coverage_spread": (
+            float(strongest_day["coverage_ratio"]) - float(weakest_day["coverage_ratio"])
+        ),
         "weakest_gap_vs_median": float(weakest_day["coverage_ratio"]) - median_coverage,
         "strongest_gap_vs_median": float(strongest_day["coverage_ratio"]) - median_coverage,
     }

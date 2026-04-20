@@ -15,7 +15,16 @@ def _looks_spanish(text: str) -> bool:
     lowered = text.lower()
     return any(
         marker in lowered
-        for marker in ["qué", "como ", "cómo", "cobertura", "día", "días", "por qué", "explica"]
+        for marker in [
+            "qué",
+            "como ",
+            "cómo",
+            "cobertura",
+            "día",
+            "días",
+            "por qué",
+            "explica",
+        ]
     )
 
 
@@ -126,7 +135,10 @@ def enrich_chat_response(
             warnings = _merge_text_lists(
                 warnings,
                 [
-                    "Las hipótesis son interpretaciones tentativas y no hechos observados en el dato."
+                    (
+                        "Las hipótesis son interpretaciones tentativas y no hechos "
+                        "observados en el dato."
+                    )
                     if spanish
                     else (
                         "Hypotheses are tentative semantic interpretations and not observed "

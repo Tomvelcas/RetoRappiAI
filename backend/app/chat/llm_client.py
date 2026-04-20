@@ -5,10 +5,10 @@ from __future__ import annotations
 import ast
 import json
 import re
-from urllib.parse import urlparse
 from dataclasses import dataclass
 from typing import Any
 from urllib import error, request
+from urllib.parse import urlparse
 
 from app.core.config import Settings, get_settings
 from app.schemas.chat import ChatExternalSource, ChatQueryRequest, ChatQueryResponse
@@ -129,7 +129,8 @@ def _build_system_prompt(
         "When the question asks about a specific day or hour, briefly mention the "
         "deterministic operation that produced the answer. "
         "If structured JSON formatting fails for any reason, fall back to plain text with "
-        "explicit sections in this exact order: Answer:, Hypotheses:, Follow-up questions:, "
+        "explicit sections in this exact order: Answer:, Hypotheses:, "
+        "Follow-up questions:, "
         "Caveats:. "
         f"{hypothesis_rule} {external_context_rule}"
     )
@@ -301,7 +302,10 @@ def _extract_relaxed_sections(output_text: str) -> dict[str, Any]:
             re.IGNORECASE,
         ),
         "follow_up_questions": re.compile(
-            r"^(follow-up questions|follow up questions|next questions|preguntas siguientes|siguientes preguntas)\s*:\s*(.*)$",
+            (
+                r"^(follow-up questions|follow up questions|next questions|"
+                r"preguntas siguientes|siguientes preguntas)\s*:\s*(.*)$"
+            ),
             re.IGNORECASE,
         ),
         "caveats": re.compile(

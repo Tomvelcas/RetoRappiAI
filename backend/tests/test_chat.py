@@ -273,7 +273,8 @@ def test_chat_hides_provider_internals_when_llm_request_fails(
 ) -> None:
     def _raise_request_error(*args, **kwargs) -> None:
         raise LLMRequestError(
-            "The narrative polish service was temporarily unavailable. Please include request id req_123."
+            "The narrative polish service was temporarily unavailable. "
+            "Please include request id req_123."
         )
 
     monkeypatch.setattr("app.chat.enrichment.generate_openai_enrichment", _raise_request_error)
@@ -309,7 +310,9 @@ def test_chat_can_add_web_research_hypotheses_when_requested(
             hypotheses=(
                 "A temporary platform or monitoring disruption may have reduced observed coverage.",
             ),
-            follow_up_questions=("Do you want the outside context separated from the dataset view?",),
+            follow_up_questions=(
+                "Do you want the outside context separated from the dataset view?",
+            ),
             caveats=("Public reporting is suggestive, not a confirmed root cause.",),
             sources=(
                 ChatExternalSource(

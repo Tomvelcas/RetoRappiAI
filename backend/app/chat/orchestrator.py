@@ -126,7 +126,10 @@ def _natural_language_dates(question: str) -> tuple[date, ...]:
     default_year = _observed_default_year()
     patterns = [
         re.compile(
-            r"\b(?P<day>\d{1,2})\s+de\s+(?P<month>[a-zA-Záéíóúñ\.]+)(?:\s+de\s+(?P<year>\d{4}))?\b",
+            (
+                r"\b(?P<day>\d{1,2})\s+de\s+"
+                r"(?P<month>[a-zA-Záéíóúñ\.]+)(?:\s+de\s+(?P<year>\d{4}))?\b"
+            ),
             re.IGNORECASE,
         ),
         re.compile(
@@ -482,7 +485,8 @@ def _hourly_coverage_artifact(
         ChatArtifactCard(
             label="Hora foco" if context.language == "es" else "Focus hour",
             value=(
-                f"{focus_bucket['label']} · {format_percent(float(focus_bucket['coverage_ratio']))}"
+                f"{focus_bucket['label']} · "
+                f"{format_percent(float(focus_bucket['coverage_ratio']))}"
             ),
             detail=(
                 f"{focus_bucket['n_points']} / 360 muestras observadas"
@@ -1148,7 +1152,10 @@ def _daily_coverage_profile_response(
                 "calidad/cobertura del dato y revisar captura o completitud antes de "
                 "convertirlo en una conclusión operativa."
                 if action_guidance
-                else "Eso deja al 11 de febrero como el primer candidato para drill-down y validación."
+                else (
+                    "Eso deja al 11 de febrero como el primer candidato para drill-down "
+                    "y validación."
+                )
             )
         )
         if context.language == "es"
@@ -1234,7 +1241,10 @@ def _daily_coverage_profile_response(
             ),
             ChatArtifactCard(
                 label="Día más débil" if context.language == "es" else "Weakest day",
-                value=f"{weakest_day['date']} · {format_percent(float(weakest_day['coverage_ratio']))}",
+                value=(
+                    f"{weakest_day['date']} · "
+                    f"{format_percent(float(weakest_day['coverage_ratio']))}"
+                ),
                 detail=(
                     f"{int(weakest_day['n_points'])} puntos observados"
                     if context.language == "es"
@@ -1249,7 +1259,8 @@ def _daily_coverage_profile_response(
                 "value": float(item["coverage_ratio"]),
                 "formatted_value": format_percent(float(item["coverage_ratio"])),
                 "detail": str(item["date"]),
-                "highlight": str(item["date"]) in {str(strongest_day["date"]), str(weakest_day["date"])},
+                "highlight": str(item["date"])
+                in {str(strongest_day["date"]), str(weakest_day["date"])},
                 "tone": (
                     "warning"
                     if str(item["date"]) == str(weakest_day["date"])
@@ -1269,9 +1280,13 @@ def _daily_coverage_profile_response(
     warnings: list[str] = []
     if str(weakest_day["coverage_flag"]) != "high":
         warnings.append(
-            "Los días más débiles deben leerse como calidad de observación, no como causa operativa confirmada."
+            "Los días más débiles deben leerse como calidad de observación, no como "
+            "causa operativa confirmada."
             if context.language == "es"
-            else "The weakest days should be read as observation quality, not confirmed operational causes."
+            else (
+                "The weakest days should be read as observation quality, not "
+                "confirmed operational causes."
+            )
         )
     return _chat_response(
         context=context,
@@ -1284,9 +1299,13 @@ def _daily_coverage_profile_response(
         warnings=warnings,
         source_tables=["availability_daily.csv"],
         disclaimer=(
-            "La comparación por fecha usa cobertura diaria agregada y no infiere granularidad por tienda."
+            "La comparación por fecha usa cobertura diaria agregada y no infiere "
+            "granularidad por tienda."
             if context.language == "es"
-            else "This date-by-date comparison uses aggregated daily coverage and does not infer store-level granularity."
+            else (
+                "This date-by-date comparison uses aggregated daily coverage and "
+                "does not infer store-level granularity."
+            )
         ),
         follow_up_intent="daily_coverage_profile",
         target_date=weakest_day["date"],

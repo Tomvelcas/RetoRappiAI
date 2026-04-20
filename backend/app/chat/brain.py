@@ -98,7 +98,10 @@ def _extract_natural_dates(question: str) -> tuple[date, ...]:
     default_year = _default_year()
     patterns = [
         re.compile(
-            r"\b(?P<day>\d{1,2})\s+de\s+(?P<month>[a-zA-Záéíóúñ\.]+)(?:\s+de\s+(?P<year>\d{4}))?\b",
+            (
+                r"\b(?P<day>\d{1,2})\s+de\s+"
+                r"(?P<month>[a-zA-Záéíóúñ\.]+)(?:\s+de\s+(?P<year>\d{4}))?\b"
+            ),
             re.IGNORECASE,
         ),
         re.compile(
@@ -255,7 +258,13 @@ def _asks_daily_coverage_chart(question: str) -> bool:
     has_hour_marker = any(
         marker in lowered for marker in ["hora", "horas", "hour", "hours", "horario", "horarios"]
     )
-    return has_chart and has_coverage and has_day_marker and has_compare_marker and not has_hour_marker
+    return (
+        has_chart
+        and has_coverage
+        and has_day_marker
+        and has_compare_marker
+        and not has_hour_marker
+    )
 
 
 def _is_referential_follow_up(question: str) -> bool:

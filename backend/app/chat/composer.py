@@ -131,7 +131,9 @@ def compose_follow_ups(payload: ComposerInput) -> list[str]:
 
     if payload.language == "es":
         if payload.intent == "unsupported_request":
-            suggestions.append("¿Quiere que lo llevemos a cobertura, anomalías o patrón horario?")
+            suggestions.append(
+                "¿Quiere que lo llevemos a cobertura, anomalías o patrón horario?"
+            )
         if payload.intent == "metric_definition":
             suggestions.append("¿Quiere ver los días más fuertes y más débiles de la señal?")
         if payload.intent == "data_quality_status":
@@ -154,11 +156,15 @@ def compose_follow_ups(payload: ComposerInput) -> list[str]:
         if payload.intent == "hourly_coverage_profile":
             suggestions.append("¿Quiere comparar esa curva entre semana y fines de semana?")
         if payload.intent == "daily_coverage_profile":
-            suggestions.append("¿Quiere que destaque los días más débiles y los compare contra el promedio?")
+            suggestions.append(
+                "¿Quiere que destaque los días más débiles y los compare contra el promedio?"
+            )
         if payload.intent == "intraday_pattern":
             suggestions.append("¿Quiere que compare ese patrón contra una fecha puntual?")
         if payload.intent == "weekday_weekend_comparison":
-            suggestions.append("¿Quiere que lo baje solo a fines de semana y lo detalle por fecha?")
+            suggestions.append(
+                "¿Quiere que lo baje solo a fines de semana y lo detalle por fecha?"
+            )
         if payload.intent == "weekend_coverage_report":
             suggestions.append("¿Quiere compararlo contra el baseline de entre semana?")
         if payload.intent == "coverage_extremes":
