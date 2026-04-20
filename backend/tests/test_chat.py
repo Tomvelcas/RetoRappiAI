@@ -79,6 +79,62 @@ def test_chat_supports_quality_question(client: TestClient) -> None:
     assert payload["time_window"]["effective_end"] == "2026-02-10"
 
 
+def test_chat_supports_metric_definition_question(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/chat/query",
+        json={"question": "¿Qué significa synthetic_monitoring_visible_stores?"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+
+    assert payload["intent"] == "metric_definition"
+    assert payload["supported"] is True
+    assert payload["source_tables"] == ["availability_quality_report.json"]
+
+
+def test_chat_supports_anomaly_review_question(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/chat/query",
+        json={"question": "Revise las anomalías horarias del rango."},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+
+    assert payload["intent"] == "anomaly_review"
+    assert payload["supported"] is True
+    assert "availability_hourly_anomalies.csv" in payload["source_tables"]
+
+
+def test_chat_supports_period_comparison_question(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/chat/query",
+        json={"question": "Compare 2026-02-10 vs 2026-02-11."},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+
+    assert payload["intent"] == "period_comparison"
+    assert payload["supported"] is True
+    assert payload["evidence"]
+
+
+def test_chat_supports_default_trend_summary_question(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/chat/query",
+        json={"question": "How is the signal behaving overall?"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+
+    assert payload["intent"] == "trend_summary"
+    assert payload["supported"] is True
+    assert payload["source_tables"] == ["availability_daily.csv"]
+
+
 def test_chat_supports_hourly_coverage_profile_chart_request(client: TestClient) -> None:
     response = client.post(
         "/api/v1/chat/query",
