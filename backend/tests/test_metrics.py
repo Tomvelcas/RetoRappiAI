@@ -68,10 +68,11 @@ def test_intraday_profile_returns_clock_hour_distribution(client: TestClient) ->
     assert response.status_code == 200
     payload = response.json()
 
-    assert payload["points"]
-    assert payload["points"][0]["label"]
-    assert payload["strongest_hour"]["label"]
-    assert payload["weakest_hour"]["label"]
+    assert payload["profile"]
+    assert isinstance(payload["profile"][0]["hour"], int)
+    assert payload["profile"][0]["coverage_flag"] in {"high", "medium", "low"}
+    assert payload["time_window"]["effective_start"] == "2026-02-01"
+    assert payload["time_window"]["effective_end"] == "2026-02-11"
 
 
 def test_anomalies_endpoint_returns_ranked_findings(client: TestClient) -> None:
@@ -80,9 +81,9 @@ def test_anomalies_endpoint_returns_ranked_findings(client: TestClient) -> None:
     assert response.status_code == 200
     payload = response.json()
 
-    assert len(payload["items"]) == 2
-    assert payload["items"][0]["date"]
-    assert payload["items"][0]["severity"] in {"high", "medium", "low"}
+    assert len(payload["anomalies"]) == 2
+    assert payload["anomalies"][0]["date"]
+    assert payload["anomalies"][0]["confidence"] in {"high", "medium", "low"}
 
 
 def test_quality_endpoint_returns_dataset_health_indicators(client: TestClient) -> None:
@@ -91,9 +92,10 @@ def test_quality_endpoint_returns_dataset_health_indicators(client: TestClient) 
     assert response.status_code == 200
     payload = response.json()
 
-    assert payload["selected_coverage_ratio"] > 0
-    assert payload["rows_observed"] > 0
-    assert payload["coverage_status"] in {"high", "medium", "low"}
+    assert payload["quality"]["selected_coverage_ratio"] > 0
+    assert payload["quality"]["daily_rows_in_selection"] > 0
+    assert payload["quality"]["selected_coverage_flag"] in {"high", "medium", "low"}
+    assert payload["notes"]
 
 
 def test_day_briefing_returns_single_day_narrative(client: TestClient) -> None:
