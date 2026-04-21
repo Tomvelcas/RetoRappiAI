@@ -76,6 +76,7 @@ class BrainPlan:
     brain_mode: Literal["deterministic", "deterministic_artifact", "hybrid"]
     should_use_llm: bool
     inherited_context: bool
+    focus_direction: Literal["lowest", "highest"] | None
     notes: tuple[str, ...]
 
 
@@ -267,16 +268,65 @@ def _selection_from_question(question: str) -> tuple[DateSelection, tuple[date, 
 
 
 def _coverage_direction(question: str) -> Literal["lowest", "highest"]:
+    explicit_direction = _explicit_coverage_focus_direction(question)
+    if explicit_direction is not None:
+        return explicit_direction
+    return "lowest"
+
+
+def _explicit_coverage_focus_direction(
+    question: str,
+) -> Literal["lowest", "highest"] | None:
     lowered = question.lower()
-    highest_markers = ["highest", "best", "mayor", "mejor", "más alta", "mas alta"]
-    return "highest" if any(marker in lowered for marker in highest_markers) else "lowest"
+    highest_markers = [
+        "highest",
+        "best",
+        "mayor",
+        "mejor",
+        "más alta",
+        "mas alta",
+        "más alto",
+        "mas alto",
+        "strongest",
+    ]
+    if any(marker in lowered for marker in highest_markers):
+        return "highest"
+
+    lowest_markers = [
+        "lowest",
+        "worst",
+        "menor",
+        "peor",
+        "más baja",
+        "mas baja",
+        "más bajo",
+        "mas bajo",
+        "weakest",
+        "más débil",
+        "mas débil",
+        "más debil",
+        "mas debil",
+    ]
+    if any(marker in lowered for marker in lowest_markers):
+        return "lowest"
+    return None
 
 
 def _detect_output_intent(question: str) -> Literal["answer", "chart", "report", "conclusions"]:
     lowered = question.lower()
     if any(
         marker in lowered
-        for marker in ["chart", "graph", "gráfico", "grafico", "barras", "bar chart", "plot"]
+        for marker in [
+            "chart",
+            "graph",
+            "gráfico",
+            "grafico",
+            "gráfica",
+            "grafica",
+            "barras",
+            "bar chart",
+            "plot",
+        ]
     ):
         return "chart"
     if any(
@@ -313,13 +363,17 @@ def _asks_weekend_report(question: str) -> bool:
     )
 
 
+def _contains_hour_marker(question: str) -> bool:
+    return any(
+        token in {"hora", "horas", "hour", "hours", "horario", "horarios", "hourly"}
+        for token in _question_tokens(question)
+    )
+
+
 def _asks_hourly_month_chart(question: str) -> bool:
     lowered = question.lower()
     return (
-        any(
-            marker in lowered
-            for marker in ["hora", "horas", "hour", "hours", "horario", "horarios"]
-        )
+        _contains_hour_marker(question)
         and any(marker in lowered for marker in ["coverage", "cobertura"])
         and _detect_output_intent(question) == "chart"
     )
@@ -346,15 +400,63 @@ def _asks_daily_coverage_chart(question: str) -> bool:
             "across",
         ]
     )
-    has_hour_marker = any(
-        marker in lowered for marker in ["hora", "horas", "hour", "hours", "horario", "horarios"]
-    )
+    has_hour_marker = _contains_hour_marker(question)
     return (
         has_chart
         and has_coverage
         and has_day_marker
         and has_compare_marker
         and not has_hour_marker
+    )
+
+
+def _asks_compare_against_average(question: str) -> bool:
+    lowered = question.lower()
+    has_compare_marker = any(
+        marker in lowered
+        for marker in [
+            "compare",
+            "compar",
+            "contra",
+            "versus",
+            "vs",
+            "frente",
+            "against",
+        ]
+    )
+    has_average_marker = any(
+        marker in lowered
+        for marker in [
+            "promedio",
+            "average",
+            "media",
+            "mediana",
+            "resto",
+            "demás",
+            "demas",
+            "others",
+            "other days",
+            "rest of",
+        ]
+    )
+    return has_compare_marker and has_average_marker
+
+
+def _asks_extreme_day_vs_average_chart(question: str) -> bool:
+    lowered = question.lower()
+    has_chart = _detect_output_intent(question) == "chart"
+    has_coverage = any(marker in lowered for marker in ["coverage", "cobertura"])
+    has_day_marker = any(
+        marker in lowered
+        for marker in ["día", "dia", "day", "days", "fecha", "fechas", "date", "dates"]
+    )
+    has_focus_direction = _explicit_coverage_focus_direction(question) is not None
+    return (
+        has_chart
+        and has_coverage
+        and has_day_marker
+        and has_focus_direction
+        and _asks_compare_against_average(question)
     )
 
 
@@ -366,24 +468,34 @@ def _is_referential_follow_up(question: str) -> bool:
 def _plan_direct_intent(
     question: str,
     output_intent: Literal["answer", "chart", "report", "conclusions"],
-) -> tuple[str, Literal["deterministic", "deterministic_artifact", "hybrid"]]:
+) -> tuple[
+    str,
+    Literal["deterministic", "deterministic_artifact", "hybrid"],
+    Literal["lowest", "highest"] | None,
+]:
     if _asks_weekday_weekend(question):
-        return "weekday_weekend_comparison", _report_or_chart_mode(output_intent)
+        return "weekday_weekend_comparison", _report_or_chart_mode(output_intent), None
     if _asks_weekend_report(question):
-        return "weekend_coverage_report", _report_or_chart_mode(output_intent)
+        return "weekend_coverage_report", _report_or_chart_mode(output_intent), None
     if _asks_hourly_month_chart(question):
-        return "hourly_coverage_profile", "deterministic_artifact"
+        return "hourly_coverage_profile", "deterministic_artifact", None
+    if _asks_extreme_day_vs_average_chart(question):
+        return (
+            "coverage_extreme_vs_average",
+            "deterministic_artifact",
+            _coverage_direction(question),
+        )
     if _asks_daily_coverage_chart(question):
-        return "daily_coverage_profile", "deterministic_artifact"
+        return "daily_coverage_profile", "deterministic_artifact", None
 
     import app.chat.orchestrator as chat_orchestrator
 
     intent = chat_orchestrator._classify_intent(question)
     if output_intent == "chart":
-        return intent, "deterministic_artifact"
+        return intent, "deterministic_artifact", None
     if output_intent in {"report", "conclusions"}:
-        return intent, "hybrid"
-    return intent, "deterministic"
+        return intent, "hybrid", None
+    return intent, "deterministic", None
 
 
 def _report_or_chart_mode(
@@ -401,15 +513,16 @@ def _reuse_conversation_context(
     extracted_dates: tuple[date, ...],
     output_intent: Literal["answer", "chart", "report", "conclusions"],
     intent: str,
+    focus_direction: Literal["lowest", "highest"] | None,
     conversation_state: ConversationState | None,
-) -> tuple[DateSelection, str, bool, tuple[str, ...]]:
+) -> tuple[DateSelection, str, bool, Literal["lowest", "highest"] | None, tuple[str, ...]]:
     if (
         conversation_state is None
         or not _is_referential_follow_up(question)
         or extracted_dates
         or _extract_month(question) is not None
     ):
-        return selection, intent, False, ()
+        return selection, intent, False, focus_direction, ()
 
     next_selection = build_selection(
         start_date=conversation_state.effective_start,
@@ -417,6 +530,24 @@ def _reuse_conversation_context(
     )
     notes = ["Reused the active analytical window from conversation memory."]
     next_intent = intent
+    next_focus_direction = focus_direction
+    if (
+        output_intent == "chart"
+        and _asks_compare_against_average(question)
+        and conversation_state.intent
+        in {"coverage_extremes", "daily_coverage_profile", "coverage_extreme_vs_average"}
+    ):
+        next_intent = "coverage_extreme_vs_average"
+        if next_focus_direction is None:
+            if conversation_state.intent == "daily_coverage_profile":
+                next_focus_direction = "lowest"
+            else:
+                next_focus_direction = _coverage_direction(conversation_state.last_question)
+        notes.append(
+            "Promoted the referential follow-up into an extreme-day versus average comparison."
+        )
+        return next_selection, next_intent, True, next_focus_direction, tuple(notes)
+
     if output_intent != "answer":
         next_intent = conversation_state.intent
         notes.append("Kept the previous analysis family and changed only the output style.")
@@ -424,7 +555,7 @@ def _reuse_conversation_context(
         next_intent = conversation_state.intent
         notes.append("Inherited the last analysis family because the follow-up was referential.")
 
-    return next_selection, next_intent, True, tuple(notes)
+    return next_selection, next_intent, True, next_focus_direction, tuple(notes)
 
 
 class ChatBrain:
@@ -444,13 +575,14 @@ class ChatBrain:
         """Return a structured execution plan for the given question."""
         selection, extracted_dates = _selection_from_question(question)
         output_intent = _detect_output_intent(question)
-        intent, brain_mode = _plan_direct_intent(question, output_intent)
-        selection, intent, inherited_context, notes = _reuse_conversation_context(
+        intent, brain_mode, focus_direction = _plan_direct_intent(question, output_intent)
+        selection, intent, inherited_context, focus_direction, notes = _reuse_conversation_context(
             question=question,
             selection=selection,
             extracted_dates=extracted_dates,
             output_intent=output_intent,
             intent=intent,
+            focus_direction=focus_direction,
             conversation_state=conversation_state,
         )
 
@@ -471,5 +603,6 @@ class ChatBrain:
             brain_mode=brain_mode,
             should_use_llm=should_use_llm,
             inherited_context=inherited_context,
+            focus_direction=focus_direction,
             notes=notes,
         )

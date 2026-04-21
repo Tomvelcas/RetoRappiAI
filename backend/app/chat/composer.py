@@ -117,6 +117,9 @@ STATIC_FOLLOW_UPS: dict[Literal["es", "en"], dict[str, str]] = {
         "daily_coverage_profile": (
             "¿Quiere que destaque los días más débiles y los compare contra el promedio?"
         ),
+        "coverage_extreme_vs_average": (
+            "¿Quiere que baje esa brecha al detalle horario del día foco?"
+        ),
         "intraday_pattern": "¿Quiere que compare ese patrón contra una fecha puntual?",
         "weekday_weekend_comparison": (
             "¿Quiere que lo baje solo a fines de semana y lo detalle por fecha?"
@@ -136,6 +139,9 @@ STATIC_FOLLOW_UPS: dict[Literal["es", "en"], dict[str, str]] = {
         "hourly_coverage_profile": "Do you want that curve split into weekdays versus weekends?",
         "daily_coverage_profile": (
             "Do you want me to highlight the weakest days against the average?"
+        ),
+        "coverage_extreme_vs_average": (
+            "Do you want me to break that gap down into the focus day's hourly detail?"
         ),
         "intraday_pattern": "Do you want that pattern compared against one specific date?",
         "weekday_weekend_comparison": "Do you want a weekend-only breakdown by date?",
@@ -164,6 +170,7 @@ CHARTABLE_INTENTS = {
     "hourly_coverage_profile",
     "weekday_weekend_comparison",
     "weekend_coverage_report",
+    "coverage_extreme_vs_average",
 }
 
 

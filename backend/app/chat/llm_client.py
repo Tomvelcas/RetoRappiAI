@@ -83,16 +83,19 @@ def _response_schema() -> dict[str, Any]:
                 "type": "array",
                 "description": "Optional tentative explanations, clearly labeled as hypotheses.",
                 "items": {"type": "string"},
+                "maxItems": 3,
             },
             "follow_up_questions": {
                 "type": "array",
                 "description": "Optional follow-up questions that stay within the supported scope.",
                 "items": {"type": "string"},
+                "maxItems": 2,
             },
             "caveats": {
                 "type": "array",
                 "description": "Explicit caveats tied to coverage, scope, or external context.",
                 "items": {"type": "string"},
+                "maxItems": 4,
             },
         },
     }
@@ -319,6 +322,117 @@ def _coerce_jsonish_payload(candidate: str) -> dict[str, Any] | None:
     return parsed if isinstance(parsed, dict) else None
 
 
+def _extract_partial_json_payload(candidate: str) -> dict[str, Any] | None:
+    answer = _extract_json_string_field(candidate, "answer")
+    if answer is None:
+        return None
+
+    return {
+        "answer": answer,
+        "hypotheses": _extract_json_array_field(candidate, "hypotheses") or [],
+        "follow_up_questions": _extract_json_array_field(candidate, "follow_up_questions") or [],
+        "caveats": _extract_json_array_field(candidate, "caveats") or [],
+    }
+
+
+def _extract_json_string_field(candidate: str, field_name: str) -> str | None:
+    marker = f'"{field_name}"'
+    marker_index = candidate.find(marker)
+    if marker_index == -1:
+        return None
+
+    colon_index = candidate.find(":", marker_index + len(marker))
+    if colon_index == -1:
+        return None
+
+    value_start = colon_index + 1
+    while value_start < len(candidate) and candidate[value_start].isspace():
+        value_start += 1
+
+    if value_start >= len(candidate) or candidate[value_start] != '"':
+        return None
+
+    value_start += 1
+    buffer: list[str] = []
+    escaped = False
+    for position in range(value_start, len(candidate)):
+        char = candidate[position]
+        if escaped:
+            buffer.append(char)
+            escaped = False
+            continue
+        if char == "\\":
+            buffer.append(char)
+            escaped = True
+            continue
+        if char == '"':
+            raw_value = "".join(buffer)
+            try:
+                return json.loads(f'"{raw_value}"')
+            except json.JSONDecodeError:
+                return (
+                    raw_value.replace("\\n", "\n")
+                    .replace("\\t", "\t")
+                    .replace('\\"', '"')
+                    .replace("\\\\", "\\")
+                )
+        buffer.append(char)
+
+    return None
+
+
+def _extract_json_array_field(candidate: str, field_name: str) -> list[str] | None:
+    marker = f'"{field_name}"'
+    marker_index = candidate.find(marker)
+    if marker_index == -1:
+        return None
+
+    colon_index = candidate.find(":", marker_index + len(marker))
+    if colon_index == -1:
+        return None
+
+    value_start = colon_index + 1
+    while value_start < len(candidate) and candidate[value_start].isspace():
+        value_start += 1
+
+    if value_start >= len(candidate) or candidate[value_start] != "[":
+        return None
+
+    depth = 0
+    inside_string = False
+    escaped = False
+    for position in range(value_start, len(candidate)):
+        char = candidate[position]
+        if inside_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                inside_string = False
+            continue
+
+        if char == '"':
+            inside_string = True
+            continue
+        if char == "[":
+            depth += 1
+            continue
+        if char == "]":
+            depth -= 1
+            if depth == 0:
+                array_candidate = candidate[value_start : position + 1]
+                try:
+                    parsed = json.loads(array_candidate)
+                except json.JSONDecodeError:
+                    return None
+                if not isinstance(parsed, list):
+                    return None
+                return [str(item).strip() for item in parsed if str(item).strip()]
+
+    return None
+
+
 def _extract_relaxed_sections(output_text: str) -> dict[str, Any]:
     stripped = "\n".join(
         line for line in output_text.splitlines() if not line.strip().startswith("```")
@@ -413,6 +527,8 @@ def _parse_enrichment_result(
 
     json_candidate = _extract_json_candidate(output_text)
     parsed = _coerce_jsonish_payload(json_candidate)
+    if parsed is None:
+        parsed = _extract_partial_json_payload(json_candidate)
     if parsed is None:
         parsed = _extract_relaxed_sections(output_text)
 

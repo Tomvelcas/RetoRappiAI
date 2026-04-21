@@ -146,6 +146,30 @@ def test_parse_enrichment_result_accepts_python_style_dict() -> None:
     assert result.hypotheses == ("Hipótesis tentativa",)
 
 
+def test_parse_enrichment_result_recovers_truncated_json_payload() -> None:
+    response_body = {
+        "output_text": (
+            '{"answer":"Según el cálculo del dataset, el 2026-02-11 tiene la cobertura más '
+            'baja del rango solicitado.","hypotheses":["Hipótesis (tentativa): lluvia '
+            'intensa pudo afectar la cobertura.","Hipótesis (tentativa): pudo haber una '
+            'incidencia operativa externa."],"follow_up_questions":["¿Quiere que lo compare'
+        )
+    }
+
+    result = llm_client._parse_enrichment_result(
+        response_body,
+        provider="openai",
+        model="gpt-5-mini",
+    )
+
+    assert result.answer.startswith("Según el cálculo del dataset")
+    assert result.hypotheses == (
+        "Hipótesis (tentativa): lluvia intensa pudo afectar la cobertura.",
+        "Hipótesis (tentativa): pudo haber una incidencia operativa externa.",
+    )
+    assert result.follow_up_questions == ()
+
+
 def test_parse_enrichment_result_rejects_missing_answer() -> None:
     with pytest.raises(llm_client.LLMRequestError, match="usable answer"):
         llm_client._parse_enrichment_result(
@@ -262,7 +286,7 @@ def test_generate_openai_enrichment_rejects_missing_configuration() -> None:
         llm_client.generate_openai_enrichment(
             chat_request,
             grounded_response,
-            settings=Settings(LLM_ENABLED=True, LLM_PROVIDER="openai"),
+            settings=Settings(LLM_ENABLED=True, LLM_PROVIDER="openai", OPENAI_API_KEY=""),
         )
 
 

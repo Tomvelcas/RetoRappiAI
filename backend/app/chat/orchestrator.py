@@ -46,6 +46,7 @@ SUPPORTED_INTENTS = {
     "hourly_coverage_lookup",
     "hourly_coverage_profile",
     "daily_coverage_profile",
+    "coverage_extreme_vs_average",
     "anomaly_review",
     "data_quality_status",
     "coverage_extremes",
@@ -109,6 +110,7 @@ class QuestionContext:
     output_intent: Literal["answer", "chart", "report", "conclusions"] = "answer"
     brain_mode: Literal["deterministic", "deterministic_artifact", "hybrid"] = "deterministic"
     inherited_context: bool = False
+    focus_direction: Literal["lowest", "highest"] | None = None
     planner_notes: tuple[str, ...] = ()
 
 
@@ -449,6 +451,7 @@ def _build_context(
     output_intent: Literal["answer", "chart", "report", "conclusions"] = "answer"
     brain_mode: Literal["deterministic", "deterministic_artifact", "hybrid"] = "deterministic"
     inherited_context = False
+    focus_direction: Literal["lowest", "highest"] | None = None
     planner_notes: tuple[str, ...] = ()
     if plan is not None:
         selection = plan.selection
@@ -457,6 +460,7 @@ def _build_context(
         output_intent = plan.output_intent
         brain_mode = plan.brain_mode
         inherited_context = plan.inherited_context
+        focus_direction = plan.focus_direction
         planner_notes = plan.notes
     if intent not in SUPPORTED_INTENTS:
         intent = "unsupported_request"
@@ -470,6 +474,7 @@ def _build_context(
         output_intent=output_intent,
         brain_mode=brain_mode,
         inherited_context=inherited_context,
+        focus_direction=focus_direction,
         planner_notes=planner_notes,
     )
 
@@ -484,6 +489,7 @@ def _reasoning_scope(context: QuestionContext, payload: ChatQueryRequest) -> str
         f"intent={context.intent}; extracted_dates={extracted_date_labels}; "
         f"output_intent={context.output_intent}; brain_mode={context.brain_mode}; "
         f"inherited_context={context.inherited_context}; "
+        f"focus_direction={context.focus_direction}; "
         f"use_llm={payload.use_llm}; allow_hypotheses={payload.allow_hypotheses}"
     )
 
@@ -1420,6 +1426,251 @@ def _daily_coverage_profile_response(
     )
 
 
+def _coverage_extreme_vs_average_response(
+    context: QuestionContext,
+    payload: ChatQueryRequest,
+) -> ChatQueryResponse:
+    summary = build_daily_coverage_profile_summary(context.selection)
+    profile = summary["profile"]
+    focus_direction = context.focus_direction or _coverage_direction(context.question)
+    focus_day = (
+        summary["strongest_day"] if focus_direction == "highest" else summary["weakest_day"]
+    )
+    focus_label = (
+        "día con mayor cobertura"
+        if context.language == "es" and focus_direction == "highest"
+        else "día con menor cobertura"
+        if context.language == "es"
+        else "highest-coverage day"
+        if focus_direction == "highest"
+        else "lowest-coverage day"
+    )
+    focus_day_ratio = float(focus_day["coverage_ratio"])
+    remaining_days = [item for item in profile if item["date"] != focus_day["date"]]
+
+    if not remaining_days:
+        answer = (
+            (
+                "Puedo identificar el día foco, pero no tengo suficientes días adicionales "
+                "en el rango activo para compararlo contra el promedio del resto."
+            )
+            if context.language == "es"
+            else (
+                "I can identify the focus day, but there are not enough additional days in "
+                "the active range to compare it against the average of the rest."
+            )
+        )
+        evidence = [
+            _evidence(
+                focus_label.title() if context.language == "es" else focus_label.capitalize(),
+                f"{focus_day['date']} | {format_percent(focus_day_ratio)}",
+                "availability_daily.csv",
+            )
+        ]
+        warnings = [
+            (
+                "Amplíe el rango para construir un baseline comparativo más útil."
+                if context.language == "es"
+                else "Widen the range to build a more useful comparison baseline."
+            )
+        ]
+        return _chat_response(
+            context=context,
+            payload=payload,
+            answer=answer,
+            confidence="medium",
+            analysis_steps=[
+                (
+                    "Identifiqué el día foco dentro de la cobertura diaria observada."
+                    if context.language == "es"
+                    else "I identified the focus day from observed daily coverage."
+                )
+            ],
+            evidence=evidence,
+            artifacts=[],
+            warnings=warnings,
+            source_tables=["availability_daily.csv"],
+            disclaimer=(
+                "La comparación necesita más de un día observado para construir un promedio "
+                "del resto del rango."
+                if context.language == "es"
+                else (
+                    "The comparison needs more than one observed day to build an average "
+                    "for the rest of the range."
+                )
+            ),
+            follow_up_intent="coverage_extreme_vs_average",
+            target_date=focus_day["date"],
+        )
+
+    remaining_average_ratio = sum(
+        float(item["coverage_ratio"]) for item in remaining_days
+    ) / len(remaining_days)
+    gap_vs_rest = focus_day_ratio - remaining_average_ratio
+    gap_label = _pp_label(gap_vs_rest)
+
+    answer = (
+        (
+            f"Tomé el {focus_label} del rango, {focus_day['date']}, y lo comparé contra el "
+            f"promedio de los otros {len(remaining_days)} días observados. Ese día queda en "
+            f"{format_percent(focus_day_ratio)}, mientras el resto promedia "
+            f"{format_percent(remaining_average_ratio)}. El desfase es {gap_label}."
+        )
+        if context.language == "es"
+        else (
+            f"I took the {focus_label} in the selected range, {focus_day['date']}, and "
+            f"compared it against the average of the other {len(remaining_days)} observed "
+            f"days. That day lands at {format_percent(focus_day_ratio)}, while the rest "
+            f"average {format_percent(remaining_average_ratio)}. The gap is {gap_label}."
+        )
+    )
+    evidence = [
+        _evidence(
+            focus_label.title() if context.language == "es" else focus_label.capitalize(),
+            f"{focus_day['date']} | {format_percent(focus_day_ratio)}",
+            "availability_daily.csv",
+        ),
+        _evidence(
+            "Promedio del resto" if context.language == "es" else "Average of the rest",
+            format_percent(remaining_average_ratio),
+            "availability_daily.csv",
+        ),
+        _evidence(
+            "Desfase vs promedio" if context.language == "es" else "Gap vs average",
+            gap_label,
+            "availability_daily.csv",
+        ),
+    ]
+    analysis_steps = [
+        (
+            "Ordené la cobertura diaria del rango para fijar el día extremo relevante."
+            if context.language == "es"
+            else "I ranked daily coverage in the range to identify the relevant extreme day."
+        ),
+        (
+            "Excluí ese día foco y calculé el promedio de cobertura del resto."
+            if context.language == "es"
+            else "I excluded that focus day and computed the average coverage for the rest."
+        ),
+        (
+            "Medí la brecha entre ambos para cuantificar qué tan desfasado quedó."
+            if context.language == "es"
+            else "I measured the gap between both values to quantify how far off it is."
+        ),
+    ]
+    warnings: list[str] = []
+    if focus_direction == "lowest":
+        warnings.append(
+            (
+                "Esta brecha describe cobertura observada del dato; no confirma una causa "
+                "operativa por sí sola."
+            )
+            if context.language == "es"
+            else (
+                "This gap describes observed data coverage; it does not confirm an "
+                "operational cause by itself."
+            )
+        )
+
+    artifact = _bar_chart_artifact(
+        context=context,
+        title=(
+            "Día extremo vs promedio del resto"
+            if context.language == "es"
+            else "Extreme day vs average of the rest"
+        ),
+        subtitle=(
+            "Comparación directa entre el día foco y el baseline del resto del rango."
+            if context.language == "es"
+            else (
+                "Direct comparison between the focus day and the baseline from the "
+                "rest of the range."
+            )
+        ),
+        cards=[
+            ChatArtifactCard(
+                label="Día foco" if context.language == "es" else "Focus day",
+                value=f"{focus_day['date']} · {format_percent(focus_day_ratio)}",
+                detail=(
+                    f"{focus_label}"
+                    if context.language == "es"
+                    else focus_label
+                ),
+                tone="warning" if focus_direction == "lowest" else "accent",
+            ),
+            ChatArtifactCard(
+                label="Promedio resto" if context.language == "es" else "Rest average",
+                value=format_percent(remaining_average_ratio),
+                detail=(
+                    f"{len(remaining_days)} días de referencia"
+                    if context.language == "es"
+                    else f"{len(remaining_days)} reference days"
+                ),
+                tone="muted",
+            ),
+            ChatArtifactCard(
+                label="Desfase" if context.language == "es" else "Gap",
+                value=gap_label,
+                detail=(
+                    "pp frente al baseline"
+                    if context.language == "es"
+                    else "pp against the baseline"
+                ),
+                tone="warning" if focus_direction == "lowest" else "accent",
+            ),
+        ],
+        points=[
+            {
+                "label": str(focus_day["date"])[5:],
+                "value": focus_day_ratio,
+                "formatted_value": format_percent(focus_day_ratio),
+                "detail": str(focus_day["date"]),
+                "highlight": True,
+                "tone": "warning" if focus_direction == "lowest" else "accent",
+            },
+            {
+                "label": "promedio resto" if context.language == "es" else "rest avg",
+                "value": remaining_average_ratio,
+                "formatted_value": format_percent(remaining_average_ratio),
+                "detail": (
+                    f"{len(remaining_days)} días"
+                    if context.language == "es"
+                    else f"{len(remaining_days)} days"
+                ),
+                "highlight": False,
+                "tone": "muted",
+            },
+        ],
+        footnote=(
+            "El promedio del resto excluye el día foco para no diluir la brecha."
+            if context.language == "es"
+            else "The rest average excludes the focus day so the gap stays interpretable."
+        ),
+    )
+    return _chat_response(
+        context=context,
+        payload=payload,
+        answer=answer,
+        confidence=str(focus_day["coverage_flag"]),
+        analysis_steps=analysis_steps,
+        evidence=evidence,
+        artifacts=[artifact],
+        warnings=warnings,
+        source_tables=["availability_daily.csv"],
+        disclaimer=(
+            "La comparación usa cobertura diaria agregada y trata el promedio del resto "
+            "como baseline descriptivo, no causal."
+            if context.language == "es"
+            else (
+                "The comparison uses aggregated daily coverage and treats the average of "
+                "the rest as a descriptive baseline, not a causal explanation."
+            )
+        ),
+        follow_up_intent="coverage_extreme_vs_average",
+        target_date=focus_day["date"],
+    )
+
+
 def _weekday_weekend_response(
     context: QuestionContext,
     payload: ChatQueryRequest,
@@ -2226,6 +2477,8 @@ def compose_grounded_response(
         return _hourly_coverage_profile_response(context, payload)
     if context.intent == "daily_coverage_profile":
         return _daily_coverage_profile_response(context, payload)
+    if context.intent == "coverage_extreme_vs_average":
+        return _coverage_extreme_vs_average_response(context, payload)
     if context.intent == "weekday_weekend_comparison":
         return _weekday_weekend_response(context, payload)
     if context.intent == "weekend_coverage_report":

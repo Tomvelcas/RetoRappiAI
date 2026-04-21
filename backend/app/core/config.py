@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     llm_timeout_seconds: float = Field(default=20.0, alias="LLM_TIMEOUT_SECONDS")
     llm_reasoning_effort: str = Field(default="low", alias="LLM_REASONING_EFFORT")
     llm_max_output_tokens: int = Field(
-        default=320,
+        default=520,
         alias="LLM_MAX_OUTPUT_TOKENS",
         ge=64,
         le=2_000,

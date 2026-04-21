@@ -31,6 +31,14 @@ from fastapi.testclient import TestClient
             "daily_coverage_profile",
             True,
         ),
+        (
+            (
+                "Podria generarme ahora una gráfica que compare el día de menor cobertura "
+                "con el promedio de los demás?"
+            ),
+            "coverage_extreme_vs_average",
+            True,
+        ),
         ("What days had the lowest coverage?", "coverage_extremes", True),
         ("¿Qué pasó el 2026-02-10?", "day_briefing", True),
         (

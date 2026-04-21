@@ -296,6 +296,180 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
+function readEmbeddedJsonStringField(raw: string, fieldName: string): string | null {
+  const marker = `"${fieldName}"`;
+  const markerIndex = raw.indexOf(marker);
+  if (markerIndex === -1) {
+    return null;
+  }
+
+  const colonIndex = raw.indexOf(":", markerIndex + marker.length);
+  if (colonIndex === -1) {
+    return null;
+  }
+
+  let valueStart = colonIndex + 1;
+  while (valueStart < raw.length && /\s/.test(raw[valueStart] ?? "")) {
+    valueStart += 1;
+  }
+
+  if (raw[valueStart] !== "\"") {
+    return null;
+  }
+
+  valueStart += 1;
+  let escaped = false;
+  let buffer = "";
+  for (let index = valueStart; index < raw.length; index += 1) {
+    const char = raw[index] ?? "";
+    if (escaped) {
+      buffer += char;
+      escaped = false;
+      continue;
+    }
+    if (char === "\\") {
+      buffer += char;
+      escaped = true;
+      continue;
+    }
+    if (char === "\"") {
+      try {
+        return JSON.parse(`"${buffer}"`) as string;
+      } catch {
+        return buffer
+          .replace(/\\n/g, "\n")
+          .replace(/\\t/g, "\t")
+          .replace(/\\"/g, "\"")
+          .replace(/\\\\/g, "\\");
+      }
+    }
+    buffer += char;
+  }
+
+  return null;
+}
+
+function readEmbeddedJsonArrayField(raw: string, fieldName: string): string[] | null {
+  const marker = `"${fieldName}"`;
+  const markerIndex = raw.indexOf(marker);
+  if (markerIndex === -1) {
+    return null;
+  }
+
+  const colonIndex = raw.indexOf(":", markerIndex + marker.length);
+  if (colonIndex === -1) {
+    return null;
+  }
+
+  let valueStart = colonIndex + 1;
+  while (valueStart < raw.length && /\s/.test(raw[valueStart] ?? "")) {
+    valueStart += 1;
+  }
+
+  if (raw[valueStart] !== "[") {
+    return null;
+  }
+
+  let depth = 0;
+  let insideString = false;
+  let escaped = false;
+  for (let index = valueStart; index < raw.length; index += 1) {
+    const char = raw[index] ?? "";
+    if (insideString) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === "\"") {
+        insideString = false;
+      }
+      continue;
+    }
+
+    if (char === "\"") {
+      insideString = true;
+      continue;
+    }
+    if (char === "[") {
+      depth += 1;
+      continue;
+    }
+    if (char === "]") {
+      depth -= 1;
+      if (depth === 0) {
+        const candidate = raw.slice(valueStart, index + 1);
+        try {
+          const parsed = JSON.parse(candidate) as unknown;
+          if (!Array.isArray(parsed)) {
+            return null;
+          }
+          return parsed
+            .map((item) => String(item).trim())
+            .filter(Boolean);
+        } catch {
+          return null;
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
+function normalizeChatResponse(payload: ChatQueryResponse): ChatQueryResponse {
+  if (typeof payload.answer !== "string") {
+    return payload;
+  }
+
+  const rawAnswer = payload.answer.trim();
+  if (!rawAnswer.startsWith("{") || !rawAnswer.includes("\"answer\"")) {
+    return payload;
+  }
+
+  let parsedAnswer: string | null = null;
+  let parsedHypotheses: string[] = [];
+  let parsedFollowUps: string[] = [];
+  let parsedCaveats: string[] = [];
+
+  try {
+    const parsed = JSON.parse(rawAnswer) as Partial<{
+      answer: unknown;
+      hypotheses: unknown;
+      follow_up_questions: unknown;
+      caveats: unknown;
+    }>;
+    parsedAnswer = typeof parsed.answer === "string" ? parsed.answer.trim() : null;
+    parsedHypotheses = Array.isArray(parsed.hypotheses)
+      ? parsed.hypotheses.map((item) => String(item).trim()).filter(Boolean)
+      : [];
+    parsedFollowUps = Array.isArray(parsed.follow_up_questions)
+      ? parsed.follow_up_questions.map((item) => String(item).trim()).filter(Boolean)
+      : [];
+    parsedCaveats = Array.isArray(parsed.caveats)
+      ? parsed.caveats.map((item) => String(item).trim()).filter(Boolean)
+      : [];
+  } catch {
+    parsedAnswer = readEmbeddedJsonStringField(rawAnswer, "answer");
+    parsedHypotheses = readEmbeddedJsonArrayField(rawAnswer, "hypotheses") ?? [];
+    parsedFollowUps = readEmbeddedJsonArrayField(rawAnswer, "follow_up_questions") ?? [];
+    parsedCaveats = readEmbeddedJsonArrayField(rawAnswer, "caveats") ?? [];
+  }
+
+  if (!parsedAnswer) {
+    return payload;
+  }
+
+  return {
+    ...payload,
+    answer: parsedAnswer,
+    hypotheses: payload.hypotheses.length ? payload.hypotheses : parsedHypotheses,
+    follow_up_questions: payload.follow_up_questions.length
+      ? payload.follow_up_questions
+      : parsedFollowUps,
+    warnings: payload.warnings.length ? payload.warnings : parsedCaveats,
+  };
+}
+
 export function getBackendHealth(signal?: AbortSignal): Promise<BackendHealth> {
   return request<BackendHealth>("/health", { signal });
 }
@@ -341,5 +515,5 @@ export function queryChat(
     method: "POST",
     body: JSON.stringify(payload),
     signal,
-  });
+  }).then(normalizeChatResponse);
 }

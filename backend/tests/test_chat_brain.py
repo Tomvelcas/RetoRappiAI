@@ -80,6 +80,52 @@ def test_brain_reuses_conversation_context_for_referential_follow_up() -> None:
     assert plan.selection.effective_end == date(2026, 2, 11)
 
 
+def test_brain_routes_explicit_extreme_day_vs_average_chart_request() -> None:
+    brain = ChatBrain(settings=Settings(LLM_ENABLED=False))
+
+    plan = brain.plan(
+        (
+            "Podria generarme ahora una gráfica que compare el día de menor cobertura "
+            "con el promedio de los demás? así puedo saber que tan desfasado estan los datos"
+        ),
+        conversation_id=None,
+        force_use_llm=False,
+    )
+
+    assert plan.intent == "coverage_extreme_vs_average"
+    assert plan.output_intent == "chart"
+    assert plan.brain_mode == "deterministic_artifact"
+    assert plan.focus_direction == "lowest"
+
+
+def test_brain_promotes_referential_extreme_day_chart_follow_up() -> None:
+    brain = ChatBrain(settings=Settings(LLM_ENABLED=False))
+    state = ConversationState(
+        conversation_id="session-compare-extreme",
+        intent="coverage_extremes",
+        output_intent="answer",
+        brain_mode="deterministic",
+        effective_start=date(2026, 2, 1),
+        effective_end=date(2026, 2, 11),
+        referenced_dates=(),
+        last_question="¿Qué día tuvo la menor cobertura?",
+        updated_at=datetime.now(timezone.utc),
+    )
+
+    plan = brain.plan(
+        "Podria generarme ahora una gráfica que compare ese día con el promedio de los demás?",
+        conversation_id="session-compare-extreme",
+        force_use_llm=False,
+        conversation_state=state,
+    )
+
+    assert plan.intent == "coverage_extreme_vs_average"
+    assert plan.output_intent == "chart"
+    assert plan.inherited_context is True
+    assert plan.focus_direction == "lowest"
+    assert any("extreme-day versus average comparison" in note for note in plan.notes)
+
+
 def test_conversation_memory_round_trip(tmp_path) -> None:
     memory = ConversationMemory(tmp_path / "chat_memory.sqlite3")
     state = ConversationState(

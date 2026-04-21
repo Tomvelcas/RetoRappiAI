@@ -177,6 +177,29 @@ def test_chat_supports_daily_coverage_profile_chart_request(client: TestClient) 
     assert payload["source_tables"] == ["availability_daily.csv"]
 
 
+def test_chat_supports_extreme_day_vs_average_chart_request(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/chat/query",
+        json={
+            "question": (
+                "Podria generarme ahora una gráfica que compare el día de menor cobertura "
+                "con el promedio de los demás? así puedo saber que tan desfasado estan los datos"
+            )
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+
+    assert payload["intent"] == "coverage_extreme_vs_average"
+    assert payload["supported"] is True
+    assert payload["artifacts"]
+    assert payload["artifacts"][0]["kind"] == "bar_chart"
+    assert len(payload["artifacts"][0]["points"]) == 2
+    assert "focus_direction=lowest" in payload["reasoning_scope"]
+    assert payload["source_tables"] == ["availability_daily.csv"]
+
+
 def test_chat_supports_weekday_weekend_comparison_question(client: TestClient) -> None:
     response = client.post(
         "/api/v1/chat/query",
@@ -294,6 +317,51 @@ def test_chat_reuses_conversation_context_for_follow_up(
     assert "inherited_context=True" in payload["reasoning_scope"]
     assert payload["time_window"]["effective_start"] == "2026-02-01"
     assert payload["time_window"]["effective_end"] == "2026-02-11"
+
+
+def test_chat_promotes_referential_extreme_day_follow_up_to_chart(
+    client: TestClient,
+    monkeypatch,
+    tmp_path,
+) -> None:
+    from app.chat.memory import ConversationMemory
+
+    temp_memory = ConversationMemory(tmp_path / "chat_memory.sqlite3")
+    monkeypatch.setattr(
+        "app.services.chat_service.get_conversation_memory",
+        lambda settings=None: temp_memory,
+    )
+
+    first = client.post(
+        "/api/v1/chat/query",
+        json={
+            "conversation_id": "session-extreme-follow-up",
+            "question": "¿Qué día tuvo la menor cobertura?",
+        },
+    )
+    assert first.status_code == 200
+    assert first.json()["intent"] == "coverage_extremes"
+
+    second = client.post(
+        "/api/v1/chat/query",
+        json={
+            "conversation_id": "session-extreme-follow-up",
+            "question": (
+                "Podria generarme ahora una gráfica que compare ese día con el promedio "
+                "de los demás?"
+            ),
+        },
+    )
+
+    assert second.status_code == 200
+    payload = second.json()
+
+    assert payload["intent"] == "coverage_extreme_vs_average"
+    assert payload["artifacts"]
+    assert payload["artifacts"][0]["kind"] == "bar_chart"
+    assert len(payload["artifacts"][0]["points"]) == 2
+    assert "inherited_context=True" in payload["reasoning_scope"]
+    assert "focus_direction=lowest" in payload["reasoning_scope"]
 
 
 def test_chat_supports_coverage_extremes_question(client: TestClient) -> None:
