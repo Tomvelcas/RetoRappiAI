@@ -53,22 +53,29 @@ Conclusión:
 ### Pipeline
 
 1. Pregunta del usuario
-2. Clasificación de intención
+2. Planner semántico que detecta intención y tipo de salida (`answer`, `chart`, `report`, `conclusions`)
 3. Validación de soporte por dataset
-4. Normalización de filtros temporales
+4. Normalización de filtros temporales y reutilización opcional de contexto conversacional
 5. Consulta determinística
-6. Construcción de objeto de evidencia
-7. Formateo con LLM o template
-8. Respuesta con advertencias y trazabilidad
+6. Construcción de evidencia y artefactos visuales compactos
+7. Formateo con composer determinístico y, si aplica, enriquecimiento opcional con LLM
+8. Respuesta con advertencias, trazabilidad y follow-ups
 
-### Intenciones sugeridas
+### Intenciones soportadas hoy
 
 - `trend_summary`
 - `period_comparison`
 - `intraday_pattern`
+- `hourly_coverage_lookup`
+- `hourly_coverage_profile`
+- `daily_coverage_profile`
 - `anomaly_review`
+- `data_quality_status`
+- `coverage_extremes`
+- `day_briefing`
+- `weekday_weekend_comparison`
+- `weekend_coverage_report`
 - `metric_definition`
-- `data_quality_question`
 - `unsupported_request`
 
 ### Objeto de evidencia sugerido
@@ -92,6 +99,7 @@ Recomendación adicional:
 
 - toda evidencia enviada al LLM debe incluir `coverage_flag` o advertencias de confianza cuando la cobertura sea parcial,
 - toda respuesta sobre anomalías debe incluir también `n_points` o una traducción compacta de ese soporte.
+- cuando la salida sea visual, el backend debe entregar artefactos compactos y typed en vez de delegar el gráfico al modelo.
 
 ## 6. Estrategias para economizar tokens
 
@@ -104,6 +112,7 @@ Recomendación adicional:
 - Usar un modelo pequeño para clasificación y uno mayor solo si realmente aporta.
 - Persistir estado conversacional como filtros estructurados, no como historial largo.
 - Cachear respuestas por combinación `intent + rango temporal + hash de evidencia`.
+- Mantener el contrato de artefactos reducido y estable para que frontend y dashboard puedan fijarlos sin heurísticas.
 
 ## 7. Estrategias anti-alucinación
 

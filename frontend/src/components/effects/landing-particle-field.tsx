@@ -7,6 +7,10 @@ import { secureRandom, secureRandomInt } from "@/lib/secure-random";
 type LandingParticleFieldProps = Readonly<{
   activeLabel: string | null;
   mode: "copilot" | "dashboard" | "idle";
+  pointerRepel?: boolean;
+  repelForce?: number;
+  repelRadius?: number;
+  transparent?: boolean;
 }>;
 
 const PARTICLE_COUNT = 5200;
@@ -58,10 +62,18 @@ function getPalette(mode: LandingParticleFieldProps["mode"]): Palette {
 export function LandingParticleField({
   activeLabel,
   mode,
+  pointerRepel = true,
+  repelForce = REPEL_FORCE,
+  repelRadius = REPEL_RADIUS,
+  transparent = false,
 }: LandingParticleFieldProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const activeLabelRef = useRef<string | null>(activeLabel);
   const modeRef = useRef(mode);
+  const pointerRepelRef = useRef(pointerRepel);
+  const repelForceRef = useRef(repelForce);
+  const repelRadiusRef = useRef(repelRadius);
+  const transparentRef = useRef(transparent);
 
   useEffect(() => {
     activeLabelRef.current = activeLabel?.trim() ? activeLabel.trim() : null;
@@ -70,6 +82,22 @@ export function LandingParticleField({
   useEffect(() => {
     modeRef.current = mode;
   }, [mode]);
+
+  useEffect(() => {
+    pointerRepelRef.current = pointerRepel;
+  }, [pointerRepel]);
+
+  useEffect(() => {
+    repelForceRef.current = repelForce;
+  }, [repelForce]);
+
+  useEffect(() => {
+    repelRadiusRef.current = repelRadius;
+  }, [repelRadius]);
+
+  useEffect(() => {
+    transparentRef.current = transparent;
+  }, [transparent]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -287,6 +315,9 @@ export function LandingParticleField({
       const jitter = wordMode ? 0 : 1.4;
       const cosY = Math.cos(rotY);
       const sinY = Math.sin(rotY);
+      const pointerRepelEnabled = pointerRepelRef.current;
+      const activeRepelRadius = repelRadiusRef.current;
+      const activeRepelForce = repelForceRef.current;
 
       for (let index = 0; index < PARTICLE_COUNT; index += 1) {
         let targetX = tx[index] * cosY - tz[index] * sinY;
@@ -304,7 +335,7 @@ export function LandingParticleField({
         vy[index] += (targetY - py[index]) * attraction;
         vz[index] += (targetZ - pz[index]) * attraction;
 
-        if (mouseX > 0) {
+        if (pointerRepelEnabled && mouseX > 0) {
           const scale = FOV / (FOV + pz[index] + CAMERA_Z);
           const screenX = px[index] * scale + centerX;
           const screenY = py[index] * scale + centerY;
@@ -312,9 +343,12 @@ export function LandingParticleField({
           const deltaY = screenY - mouseY;
           const distanceSquared = deltaX * deltaX + deltaY * deltaY;
 
-          if (distanceSquared < REPEL_RADIUS * REPEL_RADIUS && distanceSquared > 1) {
+          if (distanceSquared < activeRepelRadius * activeRepelRadius && distanceSquared > 1) {
             const distance = Math.sqrt(distanceSquared);
-            const magnitude = REPEL_FORCE * (1 - distance / REPEL_RADIUS) * (wordMode ? 5.2 : 2.4);
+            const magnitude =
+              activeRepelForce *
+              (1 - distance / activeRepelRadius) *
+              (wordMode ? 3.2 : 1.2);
             vx[index] += (deltaX / distance) * magnitude;
             vy[index] += (deltaY / distance) * magnitude;
           }
@@ -332,10 +366,14 @@ export function LandingParticleField({
 
     function draw() {
       const palette = getPalette(modeRef.current);
+      const pointerRepelEnabled = pointerRepelRef.current;
+      const useTransparentBackdrop = transparentRef.current;
 
       context.clearRect(0, 0, width, height);
-      context.fillStyle = palette.trail;
-      context.fillRect(0, 0, width, height);
+      if (!useTransparentBackdrop) {
+        context.fillStyle = palette.trail;
+        context.fillRect(0, 0, width, height);
+      }
 
       const centerGlow = context.createRadialGradient(
         centerX,
@@ -343,10 +381,18 @@ export function LandingParticleField({
         0,
         centerX,
         centerY,
-        Math.min(width, height) * 0.42,
+        Math.min(width, height) * (useTransparentBackdrop ? 0.34 : 0.42),
       );
-      centerGlow.addColorStop(0, palette.glowInner);
-      centerGlow.addColorStop(1, palette.glowOuter);
+      centerGlow.addColorStop(
+        0,
+        useTransparentBackdrop
+          ? "rgba(115, 162, 255, 0.34)"
+          : palette.glowInner,
+      );
+      centerGlow.addColorStop(
+        1,
+        useTransparentBackdrop ? "rgba(255,255,255,0)" : palette.glowOuter,
+      );
       context.fillStyle = centerGlow;
       context.fillRect(0, 0, width, height);
 
@@ -367,6 +413,14 @@ export function LandingParticleField({
         let saturation = 88;
         let lightness = 72;
 
+        if (useTransparentBackdrop && !wordMode) {
+          alpha = Math.min(1, alpha * 3.6);
+          size *= 1.82;
+          particleHue = (hue[index] + t * 18 + 236) % 360;
+          saturation = 100;
+          lightness = 60;
+        }
+
         if (wordMode) {
           const hueShift = Math.sin(index * 0.03 + t * 20) * palette.wordHueSpan;
           particleHue = palette.wordHue + hueShift;
@@ -382,19 +436,20 @@ export function LandingParticleField({
         context.fill();
       }
 
-      if (mouseX > 0) {
+      if (pointerRepelEnabled && mouseX > 0) {
+        const activeRepelRadius = repelRadiusRef.current;
         const repelGlow = context.createRadialGradient(
           mouseX,
           mouseY,
           0,
           mouseX,
           mouseY,
-          REPEL_RADIUS,
+          activeRepelRadius,
         );
-        repelGlow.addColorStop(0, "rgba(255,255,255,0.08)");
+        repelGlow.addColorStop(0, "rgba(255,255,255,0.06)");
         repelGlow.addColorStop(1, "rgba(255,255,255,0)");
         context.beginPath();
-        context.arc(mouseX, mouseY, REPEL_RADIUS, 0, Math.PI * 2);
+        context.arc(mouseX, mouseY, activeRepelRadius, 0, Math.PI * 2);
         context.fillStyle = repelGlow;
         context.fill();
       }
@@ -408,6 +463,11 @@ export function LandingParticleField({
     }
 
     const handleMouseMove = (event: MouseEvent) => {
+      if (!pointerRepelRef.current) {
+        mouseX = -9999;
+        mouseY = -9999;
+        return;
+      }
       const rect = canvasElement.getBoundingClientRect();
       mouseX = event.clientX - rect.left;
       mouseY = event.clientY - rect.top;

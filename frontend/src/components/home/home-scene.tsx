@@ -261,10 +261,10 @@ export function HomeScene({ locale }: HomeSceneProps) {
         .to(
           title,
           {
-            autoAlpha: 0.08,
-            filter: "blur(14px)",
-            scale: 0.86,
-            yPercent: -18,
+            autoAlpha: 0.36,
+            filter: "blur(6px)",
+            scale: 0.92,
+            yPercent: 56,
           },
           0,
         )
@@ -321,7 +321,7 @@ export function HomeScene({ locale }: HomeSceneProps) {
             scale: 1,
             yPercent: 0,
           },
-          0.32,
+          0.28,
         );
 
       gsap.to(ctaAssets, {
@@ -449,9 +449,9 @@ export function HomeScene({ locale }: HomeSceneProps) {
       }
 
       gsap.to(ctaStage, {
-        autoAlpha: 0.28,
-        scale: 0.95,
-        yPercent: -12,
+        autoAlpha: 1,
+        scale: 0.985,
+        yPercent: -6,
         scrollTrigger: {
           scrub: 1.15,
           start: "top bottom",
@@ -462,9 +462,9 @@ export function HomeScene({ locale }: HomeSceneProps) {
 
       if (choiceCards.length > 0) {
         gsap.to(choiceCards, {
-          rotateX: -8,
-          scale: 0.97,
-          yPercent: -8,
+          rotateX: -5,
+          scale: 0.985,
+          yPercent: -4,
           scrollTrigger: {
             scrub: 1.05,
             start: "top bottom",

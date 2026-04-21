@@ -16,7 +16,7 @@ type DashboardStaggeredMenuProps = Readonly<{
   items: readonly DashboardStaggeredMenuItem[];
 }>;
 
-const layerDelays = ["0ms", "45ms", "90ms"];
+const layerDelays = ["0ms", "110ms", "220ms"];
 
 export function DashboardStaggeredMenu({
   items,
@@ -58,33 +58,37 @@ export function DashboardStaggeredMenu({
         aria-expanded={open}
         aria-label={open ? "Cerrar menú" : "Abrir menú"}
         className={[
-          "group inline-flex size-12 items-center justify-center rounded-full border transition",
-          "border-[color:rgba(255,124,45,0.18)] bg-[linear-gradient(180deg,rgba(255,255,255,0.06),transparent_18%),linear-gradient(135deg,rgba(255,124,45,0.12),rgba(20,6,3,0.94))] text-[color:#fff6f0] shadow-[0_22px_48px_rgba(0,0,0,0.28),0_0_18px_rgba(255,96,18,0.08)] backdrop-blur-xl",
-          open ? "ring-1 ring-[color:rgba(255,122,31,0.24)]" : "hover:border-[color:rgba(255,122,31,0.3)]",
+          "group relative inline-flex size-14 items-center justify-center overflow-hidden rounded-full border transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]",
+          "border-[color:rgba(255,124,45,0.22)] bg-[linear-gradient(180deg,rgba(255,255,255,0.08),transparent_18%),linear-gradient(135deg,rgba(255,124,45,0.16),rgba(20,6,3,0.95))] text-[color:#fff6f0] shadow-[0_26px_64px_rgba(0,0,0,0.32),0_0_26px_rgba(255,96,18,0.14)] backdrop-blur-xl",
+          open
+            ? "scale-[1.04] ring-1 ring-[color:rgba(255,122,31,0.3)]"
+            : "hover:scale-[1.03] hover:border-[color:rgba(255,122,31,0.36)] hover:shadow-[0_30px_72px_rgba(0,0,0,0.36),0_0_30px_rgba(255,96,18,0.18)]",
         ].join(" ")}
         onClick={() => setOpen((current) => !current)}
         type="button"
       >
+        <span className="pointer-events-none absolute inset-[8%] rounded-full bg-[radial-gradient(circle,rgba(255,152,84,0.16),transparent_68%)] transition duration-700 group-hover:scale-110" />
         <span
           className={[
-            "relative inline-flex h-4 w-5 items-center justify-center transition-transform duration-300",
+            "relative inline-flex h-4 w-5 items-center justify-center transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
+            open ? "scale-105" : "",
           ].join(" ")}
         >
           <span
             className={[
-              "absolute h-0.5 w-5 rounded-full bg-current transition-all duration-300",
+              "absolute h-0.5 w-5 rounded-full bg-current transition-all duration-500",
               open ? "translate-y-0 rotate-45" : "-translate-y-[5px]",
             ].join(" ")}
           />
           <span
             className={[
-              "absolute h-0.5 w-5 rounded-full bg-current transition-all duration-300",
+              "absolute h-0.5 w-5 rounded-full bg-current transition-all duration-500",
               open ? "opacity-0" : "opacity-100",
             ].join(" ")}
           />
           <span
             className={[
-              "absolute h-0.5 w-5 rounded-full bg-current transition-all duration-300",
+              "absolute h-0.5 w-5 rounded-full bg-current transition-all duration-500",
               open ? "translate-y-0 -rotate-45" : "translate-y-[5px]",
             ].join(" ")}
           />
@@ -93,13 +97,13 @@ export function DashboardStaggeredMenu({
 
       <div
         className={[
-          "fixed inset-0 z-30 transition",
+          "fixed inset-0 z-30 transition duration-500",
           open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
         ].join(" ")}
       >
         <button
           aria-hidden={!open}
-          className="absolute inset-0 bg-[rgba(7,3,2,0.56)] backdrop-blur-[6px]"
+          className="absolute inset-0 bg-[rgba(7,3,2,0.64)] backdrop-blur-[10px]"
           onClick={() => setOpen(false)}
           tabIndex={open ? 0 : -1}
           type="button"
@@ -108,15 +112,15 @@ export function DashboardStaggeredMenu({
 
       <div
         className={[
-          "fixed inset-y-0 left-0 z-40 w-[min(320px,84vw)]",
+          "fixed inset-y-0 left-0 z-40 w-[min(360px,86vw)]",
           open ? "pointer-events-auto" : "pointer-events-none",
         ].join(" ")}
       >
         {layerDelays.map((delay, index) => (
           <div
             className={[
-              "absolute inset-y-0 left-0 w-full transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
-              open ? "translate-x-0" : "-translate-x-[112%]",
+              "absolute inset-y-0 left-0 w-full transition-transform ease-[cubic-bezier(0.22,1,0.36,1)]",
+              open ? "translate-x-0" : "-translate-x-[124%]",
             ].join(" ")}
             key={delay}
             style={{
@@ -126,6 +130,7 @@ export function DashboardStaggeredMenu({
                   : index === 1
                     ? "linear-gradient(180deg, rgba(84,26,10,0.96), rgba(36,12,5,0.98))"
                     : "linear-gradient(180deg, rgba(14,5,3,0.995), rgba(7,2,1,0.995))",
+              transitionDuration: `${760 + index * 120}ms`,
               transitionDelay: open ? delay : "0ms",
             }}
           />
@@ -133,11 +138,14 @@ export function DashboardStaggeredMenu({
 
         <aside
           className={[
-            "absolute inset-y-0 left-0 flex w-full flex-col px-5 pb-6 pt-20 text-[color:#fff8f4] transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]",
-            open ? "translate-x-0" : "-translate-x-[108%]",
+            "absolute inset-y-0 left-0 flex w-full flex-col px-6 pb-6 pt-24 text-[color:#fff8f4] transition-all ease-[cubic-bezier(0.22,1,0.36,1)]",
+            open ? "translate-x-0 opacity-100" : "-translate-x-[112%] opacity-0",
           ].join(" ")}
           id="dashboard-staggered-menu"
-          style={{ transitionDelay: open ? "120ms" : "0ms" }}
+          style={{
+            transitionDelay: open ? "240ms" : "0ms",
+            transitionDuration: open ? "980ms" : "520ms",
+          }}
         >
           <div className="flex h-full flex-col">
             <div className="flex items-center gap-3">
@@ -164,12 +172,13 @@ export function DashboardStaggeredMenu({
                 return (
                   <li
                     className={[
-                      "transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
-                      open ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0",
+                      "transition-all ease-[cubic-bezier(0.22,1,0.36,1)]",
+                      open ? "translate-x-0 translate-y-0 opacity-100" : "-translate-x-8 translate-y-10 opacity-0",
                     ].join(" ")}
                     key={item.href}
                     style={{
-                      transitionDelay: open ? `${180 + index * 70}ms` : "0ms",
+                      transitionDelay: open ? `${360 + index * 110}ms` : "0ms",
+                      transitionDuration: open ? "760ms" : "320ms",
                     }}
                   >
                     <Link

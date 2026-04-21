@@ -1,13 +1,13 @@
 # AI-Powered Dashboard
 
-Production-like monorepo scaffold for an analytics-first dashboard and chatbot focused on historical store availability data.
+Monorepo analytics-first para un dashboard y un chatbot grounded sobre una serie temporal agregada de disponibilidad observada.
 
-The current scaffold intentionally keeps business logic minimal. It sets up the repository shape, local developer workflow, Dockerized services, CI, and placeholder analytics/chat contracts so future implementation can focus on real data and product logic.
+El repositorio ya incluye backend determinístico, dashboard operativo, planner conversacional, memoria liviana y una capa opcional de OpenAI para enriquecer redacción o aportar hipótesis tentativas sin mover la verdad numérica fuera de la analítica.
 
 ## Architecture Intent
 
 - Deterministic analytics remains the source of business truth.
-- The chatbot layer is reserved for semantic interpretation and grounded response formatting.
+- The chatbot layer is reserved for semantic interpretation, response composition, and controlled optional enrichment.
 - Guardrails, traceability, and token efficiency are first-class concerns for later iterations.
 
 ## Repository Structure
@@ -69,13 +69,15 @@ make docker-down    # Stop Docker Compose services
 
 ## What Is Included
 
-- FastAPI backend with health, metrics, and chat placeholder endpoints
-- Next.js App Router frontend with a minimal dashboard shell
+- FastAPI backend with deterministic metrics endpoints and grounded chat orchestration
+- Next.js App Router frontend with dashboard, chat workspace, and pin-to-dashboard flow
 - Tailwind CSS styling and a small API client layer
 - Placeholder notebooks and documentation
 - Dockerfiles and `docker-compose.yml`
 - Practical CI for install, lint, coverage, API smoke tests, type-checking, and build
 - Security automation via dependency audits, CodeQL, Dependency Review, and Dependabot
+- Chat artifacts that can be fixed into the dashboard as ad-hoc widgets
+- Optional LLM enrichment with explicit guardrails, caveats, and isolated web-context support
 
 ## Quality and Security
 
@@ -85,9 +87,15 @@ make docker-down    # Stop Docker Compose services
 - Dependency review on PRs: `.github/workflows/dependency-review.yml`
 - Additional guidance: [docs/QUALITY_AND_SECURITY.md](docs/QUALITY_AND_SECURITY.md)
 
+## Chatbot Guide
+
+- Guía funcional del copiloto: [docs/CHATBOT_GUIDE.md](docs/CHATBOT_GUIDE.md)
+- Estrategia AI y guardrails: [docs/AI_STRATEGY.md](docs/AI_STRATEGY.md)
+- Arquitectura general: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+
 ## Next Development Steps
 
-- Add PRD details and architecture decisions under `docs/`
-- Load real datasets into `data/`
-- Implement deterministic analytics in `backend/app/analytics`
-- Replace mocked chat behavior with grounded orchestration and guardrails
+- Expand artifact types beyond the current bar-style chart payloads
+- Add richer dashboard-to-chat cross-filtering beyond the current pinning workflow
+- Harden evaluation datasets for chat routing, guardrails, and LLM fallbacks
+- Keep documentation aligned with the grounded analytics contract as new intents are added

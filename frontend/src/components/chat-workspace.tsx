@@ -6,6 +6,8 @@ import { useEffect, useRef, useState } from "react";
 import { ChatArtifactView } from "@/components/chat-artifact";
 import { ChatSettingsPanel } from "@/components/chat-settings-panel";
 import { ChatThinkingCore } from "@/components/chat-thinking-core";
+import { DashboardStaggeredMenu } from "@/components/dashboard-staggered-menu";
+import { LandingParticleField } from "@/components/effects/landing-particle-field";
 import type { BackendHealth, ChatQueryResponse } from "@/lib/api";
 import { getBackendHealth, queryChat } from "@/lib/api";
 import {
@@ -39,6 +41,43 @@ const starterPrompts = [
   "Compare entre semana contra fines de semana.",
   "¿Cuál fue la hora con menor cobertura el 11 de febrero?",
 ];
+
+const chatMenuItems = [
+  {
+    ariaLabel: "Ir a inicio",
+    href: "/",
+    label: "Inicio",
+    shortLabel: "00",
+  },
+  {
+    ariaLabel: "Ir al dashboard",
+    href: "/dashboard",
+    label: "Dashboard",
+    shortLabel: "01",
+  },
+  {
+    ariaLabel: "Ir al chat",
+    href: "/chat",
+    label: "Chat",
+    shortLabel: "02",
+  },
+] as const;
+
+const greetingFaces = [
+  {
+    fontFamily: "var(--font-brand), 'Brush Script MT', cursive",
+    tone: "text-[color:rgba(42,26,18,0.98)] tracking-[-0.08em]",
+  },
+  {
+    fontFamily: "var(--font-heading), 'Iowan Old Style', 'Palatino Linotype', serif",
+    tone: "text-[color:rgba(70,44,31,0.94)] italic tracking-[-0.07em]",
+  },
+  {
+    fontFamily:
+      "\"Avenir Next Condensed\", \"IBM Plex Sans\", var(--font-body), sans-serif",
+    tone: "text-[color:rgba(50,34,24,0.9)] tracking-[-0.06em]",
+  },
+] as const;
 
 function relativeTimeLabel(value: string): string {
   const date = new Date(value);
@@ -155,7 +194,7 @@ function presenceTitle(isSubmitting: boolean, activeSession: StoredChatSession |
     return "Analizando";
   }
 
-  return "OrbbiBoard";
+  return "Orbbi";
 }
 
 function presenceDetail(
@@ -234,6 +273,7 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [greetingFaceIndex, setGreetingFaceIndex] = useState(0);
   const autoPromptRan = useRef(false);
   const endRef = useRef<HTMLDivElement | null>(null);
   const llmToggleTouched = useRef(false);
@@ -353,15 +393,32 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
     allowWebResearch,
   );
   const hasConversation = Boolean(activeSession?.turns.length);
+  const hasDraft = draft.trim().length > 0;
   const headerTitle = hasConversation ? activeSession?.title ?? "Nuevo hilo" : heroTitle;
   const headerDetail = hasConversation
     ? heroDetail
     : "Un solo espacio para preguntar, comparar y fijar piezas en el tablero.";
   const welcomeTitle = greetingLabel();
+  const showWelcomeHero = !hasConversation && !hasDraft && !isSubmitting;
+  const showCompanionOrb = hasConversation || hasDraft || isSubmitting;
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: "end" });
   }, [activeSession?.turns.length]);
+
+  useEffect(() => {
+    if (!showWelcomeHero) {
+      return;
+    }
+
+    const intervalId = globalThis.setInterval(() => {
+      setGreetingFaceIndex((current) => (current + 1) % greetingFaces.length);
+    }, 1800);
+
+    return () => {
+      globalThis.clearInterval(intervalId);
+    };
+  }, [showWelcomeHero]);
 
   useEffect(() => {
     if (!initialQuestion || autoPromptRan.current || !activeSession) {
@@ -545,8 +602,10 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
   }
 
   function renderComposer({ centered = false }: Readonly<{ centered?: boolean }> = {}) {
+    const sendDisabled = isSubmitting || !draft.trim() || !activeSession;
+
     return (
-      <div className={centered ? "w-full max-w-[760px]" : "mx-auto w-full max-w-4xl"}>
+      <div className={centered ? "mx-auto w-full max-w-[760px]" : "mx-auto w-full max-w-4xl"}>
         {!centered ? (
           <div className="flex flex-wrap gap-2">
             {followUps.slice(0, 3).map((prompt) => (
@@ -565,31 +624,39 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
         <div
           className={[
             "chat-composer-shell",
-            centered ? "rounded-[32px] px-5 py-5" : "mt-3 rounded-[28px] px-4 py-3",
+            centered
+              ? [
+                  "rounded-[28px] px-5 py-4 transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                  hasDraft
+                    ? "translate-y-[-4px] shadow-[0_34px_74px_rgba(255,122,31,0.12),inset_0_1px_0_rgba(255,255,255,0.9)]"
+                    : "",
+                ].join(" ")
+              : "mt-3 rounded-[26px] px-4 py-3",
           ].join(" ")}
         >
           <div className="mb-3 h-px w-full bg-[linear-gradient(90deg,transparent,rgba(255,143,107,0.72),rgba(255,183,142,0.82),transparent)]" />
           <textarea
             className={[
               "glass-scroll w-full resize-none bg-transparent text-sm leading-7 text-[color:var(--text-strong)] outline-none placeholder:text-[color:var(--text-dim)]",
-              centered ? "min-h-32 text-base" : "min-h-28",
+              centered ? "min-h-28 text-base" : "min-h-28",
             ].join(" ")}
             onChange={(event) => setDraft(event.target.value)}
-            placeholder="Pregunte por una fecha, una caída o una tendencia."
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                if (!sendDisabled) {
+                  void sendQuestion(draft);
+                }
+              }
+            }}
+            placeholder="Pregunte por una fecha, una caída, una franja horaria o una comparación."
             value={draft}
           />
 
           <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="chat-kicker-chip rounded-full px-3 py-1.5 text-[11px] uppercase tracking-[0.16em]">
-                {llmReady ? "motor listo" : "solo datos"}
-              </span>
-              {activeSession ? (
-                <span className="chat-kicker-chip rounded-full px-3 py-1.5 text-[11px] uppercase tracking-[0.16em]">
-                  {activeSession.turns.length} mensajes
-                </span>
-              ) : null}
-            </div>
+            <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-dim)]">
+              Enter para enviar · Shift + Enter para salto
+            </p>
 
             <div className="flex items-center gap-3">
               {isSubmitting ? (
@@ -599,7 +666,7 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
               ) : null}
               <button
                 className="copilot-gradient-button rounded-full px-4 py-3 text-sm font-medium text-[color:#fff7f3] transition hover:opacity-92 disabled:cursor-not-allowed disabled:opacity-60"
-                disabled={isSubmitting || !draft.trim() || !activeSession}
+                disabled={sendDisabled}
                 onClick={() => void sendQuestion(draft)}
                 type="button"
               >
@@ -610,8 +677,13 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
         </div>
 
         {centered ? (
-          <div className="mt-5 flex flex-wrap justify-center gap-2">
-            {followUps.slice(0, 4).map((prompt) => (
+          <div
+            className={[
+              "mt-4 flex flex-wrap justify-center gap-2 transition-all duration-500",
+              showWelcomeHero ? "opacity-100" : "pointer-events-none opacity-0",
+            ].join(" ")}
+          >
+            {followUps.slice(0, 3).map((prompt) => (
               <button
                 className="chat-kicker-chip rounded-full px-3 py-2 text-xs transition hover:text-[color:var(--text-strong)]"
                 key={prompt}
@@ -628,33 +700,36 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
   }
 
   return (
-    <main className="chat-page-shell mx-auto max-w-[1580px] px-3 pb-8 pt-3 sm:px-4 sm:pt-4 lg:px-6">
-      <section className="relative z-10 grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)]">
-        <aside className="chat-sidebar-shell order-2 flex flex-col rounded-[32px] p-3 xl:order-1 xl:sticky xl:top-4 xl:h-[calc(100dvh-2rem)]">
-          <button
-            className="rounded-[20px] border border-[color:rgba(255,255,255,0.08)] bg-[linear-gradient(135deg,rgba(255,255,255,0.08),rgba(255,122,31,0.2))] px-4 py-3 text-left text-sm font-medium text-white shadow-[0_18px_40px_rgba(0,0,0,0.18)] transition hover:border-[color:rgba(255,255,255,0.14)]"
-            onClick={createNewChat}
-            type="button"
-          >
-            + Nuevo hilo
-          </button>
+    <main className="chat-page-shell h-dvh overflow-hidden">
+      <section className="relative z-10 grid h-full min-h-0 lg:grid-cols-[296px_minmax(0,1fr)]">
+        <aside className="chat-sidebar-shell order-2 flex min-h-0 flex-col border-t border-[color:rgba(255,255,255,0.06)] lg:order-1 lg:h-full lg:border-r lg:border-t-0">
+          <div className="flex items-center justify-between border-b border-[color:rgba(255,255,255,0.08)] px-5 py-4">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.18em] text-[color:rgba(255,240,232,0.48)]">
+                Orbbi
+              </p>
+              <p
+                className="mt-2 text-[1.85rem] font-normal tracking-[-0.05em] text-white"
+                style={{ fontFamily: "var(--font-brand), cursive" }}
+              >
+                Chat
+              </p>
+            </div>
 
-          <div className="mt-3 rounded-[24px] border border-[color:rgba(255,255,255,0.08)] bg-[color:rgba(255,255,255,0.04)] px-4 py-4">
-            <p className="text-[11px] uppercase tracking-[0.18em] text-[color:rgba(255,240,232,0.48)]">
-              OrbbiBoard
-            </p>
-            <p
-              className="mt-2 text-[1.8rem] font-normal tracking-[-0.05em] text-white"
-              style={{ fontFamily: "var(--font-brand), cursive" }}
-            >
-              Asistente
-            </p>
-            <p className="mt-2 text-sm leading-6 text-[color:rgba(255,240,232,0.68)]">
-              Conversación, contexto y tablero en una sola pantalla.
-            </p>
+            <DashboardStaggeredMenu items={chatMenuItems} />
           </div>
 
-          <div className="mt-4 flex items-center justify-between px-2">
+          <div className="border-b border-[color:rgba(255,255,255,0.06)] px-5 py-4">
+            <button
+              className="w-full rounded-[18px] border border-[color:rgba(255,255,255,0.08)] bg-[linear-gradient(135deg,rgba(255,255,255,0.08),rgba(255,122,31,0.2))] px-4 py-3 text-left text-sm font-medium text-white shadow-[0_18px_40px_rgba(0,0,0,0.18)] transition hover:border-[color:rgba(255,255,255,0.14)]"
+              onClick={createNewChat}
+              type="button"
+            >
+              + Nuevo hilo
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between px-5 pt-4">
             <p className="text-[11px] uppercase tracking-[0.18em] text-[color:rgba(255,240,232,0.48)]">
               Hilos
             </p>
@@ -663,17 +738,17 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
             </span>
           </div>
 
-          <div className="glass-scroll mt-3 flex-1 space-y-2 overflow-y-auto pr-1">
+          <div className="glass-scroll mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto px-3 pb-4">
             {sessions.map((session) => {
               const isActive = session.id === activeSessionId;
 
               return (
                 <button
                   className={[
-                    "w-full rounded-[22px] border px-4 py-3 text-left transition",
+                    "w-full rounded-[18px] border px-4 py-3 text-left transition",
                     isActive
-                      ? "border-[color:rgba(255,122,31,0.18)] bg-[linear-gradient(135deg,rgba(255,122,31,0.18),rgba(255,255,255,0.05))] text-white"
-                      : "border-[color:rgba(255,255,255,0.06)] bg-[color:rgba(255,255,255,0.03)] text-[color:rgba(255,240,232,0.76)] hover:border-[color:rgba(255,255,255,0.12)] hover:bg-[color:rgba(255,255,255,0.05)]",
+                      ? "border-[color:rgba(255,122,31,0.22)] bg-[linear-gradient(135deg,rgba(255,122,31,0.2),rgba(255,255,255,0.04))] text-white shadow-[0_16px_34px_rgba(255,122,31,0.12)]"
+                      : "border-[color:rgba(255,255,255,0.05)] bg-[color:rgba(255,255,255,0.02)] text-[color:rgba(255,240,232,0.76)] hover:border-[color:rgba(255,255,255,0.12)] hover:bg-[color:rgba(255,255,255,0.05)]",
                   ].join(" ")}
                   key={session.id}
                   onClick={() => setActiveSessionId(session.id)}
@@ -698,132 +773,148 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
             })}
           </div>
 
-          <div className="mt-4 rounded-[24px] border border-[color:rgba(255,255,255,0.08)] bg-[color:rgba(255,255,255,0.04)] px-4 py-4">
-            <p className="text-[11px] uppercase tracking-[0.18em] text-[color:rgba(255,240,232,0.48)]">
-              Tablero
-            </p>
-            <div className="mt-3 flex items-end justify-between gap-3">
-              <div>
-                <p className="text-3xl font-semibold tracking-[-0.05em] text-white">
-                  {pinnedCount}
-                </p>
-                <p className="mt-1 text-sm text-[color:rgba(255,240,232,0.62)]">
-                  piezas fijadas
-                </p>
-              </div>
-              <Link
-                className="rounded-full border border-[color:rgba(255,255,255,0.1)] bg-[color:rgba(255,255,255,0.06)] px-4 py-2 text-sm font-medium text-white transition hover:border-[color:rgba(255,255,255,0.16)]"
-                href="/dashboard"
-              >
-                Abrir
-              </Link>
-            </div>
-          </div>
+          <div className="border-t border-[color:rgba(255,255,255,0.08)] px-5 py-4">
+            <Link
+              className="inline-flex rounded-full border border-[color:rgba(255,255,255,0.1)] bg-[color:rgba(255,255,255,0.06)] px-4 py-2 text-sm font-medium text-white transition hover:border-[color:rgba(255,255,255,0.16)]"
+              href="/dashboard"
+            >
+              Abrir dashboard
+            </Link>
 
-          <div className="mt-3 flex flex-wrap gap-2 px-1">
-            <button
-              className="rounded-full border border-[color:rgba(255,255,255,0.08)] px-3 py-2 text-xs text-[color:rgba(255,240,232,0.64)] transition hover:border-[color:rgba(255,255,255,0.14)] hover:text-white"
-              onClick={clearCurrentChat}
-              type="button"
-            >
-              Limpiar hilo
-            </button>
-            <button
-              className="rounded-full border border-[color:rgba(255,255,255,0.08)] px-3 py-2 text-xs text-[color:rgba(255,240,232,0.64)] transition hover:border-[color:rgba(255,255,255,0.14)] hover:text-white"
-              onClick={deleteCurrentChat}
-              type="button"
-            >
-              Eliminar
-            </button>
-            <button
-              className="rounded-full border border-[color:rgba(178,76,89,0.24)] px-3 py-2 text-xs text-[color:#ffb6a7] transition hover:border-[color:rgba(178,76,89,0.4)]"
-              onClick={clearAllChats}
-              type="button"
-            >
-              Limpiar todo
-            </button>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                className="rounded-full border border-[color:rgba(255,255,255,0.08)] px-3 py-2 text-xs text-[color:rgba(255,240,232,0.64)] transition hover:border-[color:rgba(255,255,255,0.14)] hover:text-white"
+                onClick={clearCurrentChat}
+                type="button"
+              >
+                Limpiar hilo
+              </button>
+              <button
+                className="rounded-full border border-[color:rgba(255,255,255,0.08)] px-3 py-2 text-xs text-[color:rgba(255,240,232,0.64)] transition hover:border-[color:rgba(255,255,255,0.14)] hover:text-white"
+                onClick={deleteCurrentChat}
+                type="button"
+              >
+                Eliminar
+              </button>
+              <button
+                className="rounded-full border border-[color:rgba(178,76,89,0.24)] px-3 py-2 text-xs text-[color:#ffb6a7] transition hover:border-[color:rgba(178,76,89,0.4)]"
+                onClick={clearAllChats}
+                type="button"
+              >
+                Limpiar todo
+              </button>
+            </div>
           </div>
         </aside>
 
-        <section className="chat-main-shell order-1 flex min-h-[calc(100dvh-2rem)] flex-col rounded-[36px] xl:order-2">
-          <div className="border-b border-[color:rgba(67,57,47,0.08)] px-5 py-5 sm:px-6">
-            <div className="relative z-10 flex flex-col gap-4">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <p className="eyebrow">Asistente</p>
-                  <h1
-                    className={[
-                      "mt-2 tracking-[-0.05em] text-[color:var(--text-strong)]",
-                      hasConversation
-                        ? "text-[clamp(1.8rem,3vw,2.6rem)] font-semibold"
-                        : "text-[clamp(2.5rem,5vw,4rem)] font-normal",
-                    ].join(" ")}
-                    style={{
-                      fontFamily: hasConversation ? "var(--font-heading), serif" : "var(--font-brand), cursive",
-                    }}
-                  >
-                    {headerTitle}
-                  </h1>
-                  <p className="mt-3 max-w-2xl text-sm leading-7 text-[color:var(--text-soft)]">
-                    {headerDetail}
-                  </p>
-                </div>
+        <section className="chat-main-shell order-1 flex min-h-0 flex-col lg:order-2 lg:h-full">
+          {showCompanionOrb ? (
+            <div className="chat-companion-orb pointer-events-none absolute right-5 top-5 z-20 hidden sm:block">
+              <LandingParticleField
+                activeLabel={isSubmitting ? "PIENSA" : null}
+                mode="copilot"
+                pointerRepel={isSubmitting}
+                repelForce={2.1}
+                repelRadius={64}
+                transparent
+              />
+            </div>
+          ) : null}
 
-                <div className="flex flex-wrap items-center gap-2">
+          {hasConversation ? (
+            <div className="border-b border-[color:rgba(67,57,47,0.08)] px-6 py-5">
+              <div className="relative z-10 flex flex-col gap-4">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="eyebrow">Conversación</p>
+                    <h1
+                      className="mt-2 text-[clamp(1.85rem,3vw,2.7rem)] font-semibold tracking-[-0.05em] text-[color:var(--text-strong)]"
+                      style={{ fontFamily: "var(--font-heading), serif" }}
+                    >
+                      {headerTitle}
+                    </h1>
+                    <p className="mt-3 max-w-2xl text-sm leading-7 text-[color:var(--text-soft)]">
+                      {headerDetail}
+                    </p>
+                  </div>
+
                   <span className="chat-kicker-chip rounded-full px-3 py-1.5 text-[11px] uppercase tracking-[0.16em]">
                     {heroSubtitle}
                   </span>
-                  <span className="chat-kicker-chip rounded-full px-3 py-1.5 text-[11px] uppercase tracking-[0.16em]">
-                    {pinnedCount} piezas
-                  </span>
+                </div>
+
+                <div className="max-w-4xl">
+                  <ChatSettingsPanel
+                    allowHypotheses={allowHypotheses}
+                    allowWebResearch={allowWebResearch}
+                    backendHealth={backendHealth}
+                    compact
+                    externalContext={externalContext}
+                    llmReady={llmReady}
+                    notice={notice}
+                    onAllowHypothesesChange={(value) => {
+                      llmToggleTouched.current = true;
+                      setAllowHypotheses(value);
+                      if (value && !useLlm) {
+                        setUseLlm(true);
+                      }
+                      if (!value) {
+                        setAllowWebResearch(false);
+                      }
+                    }}
+                    onAllowWebResearchChange={(value) => {
+                      llmToggleTouched.current = true;
+                      setAllowWebResearch(value);
+                      if (value && !useLlm) {
+                        setUseLlm(true);
+                      }
+                      if (value && !allowHypotheses) {
+                        setAllowHypotheses(true);
+                      }
+                    }}
+                    onExternalContextChange={setExternalContext}
+                    onUseLlmChange={(value) => {
+                      llmToggleTouched.current = true;
+                      setUseLlm(value);
+                      if (!value) {
+                        setAllowHypotheses(false);
+                        setAllowWebResearch(false);
+                      }
+                    }}
+                    pinnedCount={pinnedCount}
+                    useLlm={useLlm}
+                  />
                 </div>
               </div>
-
-              <ChatSettingsPanel
-                allowHypotheses={allowHypotheses}
-                allowWebResearch={allowWebResearch}
-                backendHealth={backendHealth}
-                compact
-                externalContext={externalContext}
-                llmReady={llmReady}
-                notice={notice}
-                onAllowHypothesesChange={(value) => {
-                  llmToggleTouched.current = true;
-                  setAllowHypotheses(value);
-                  if (value && !useLlm) {
-                    setUseLlm(true);
-                  }
-                  if (!value) {
-                    setAllowWebResearch(false);
-                  }
-                }}
-                onAllowWebResearchChange={(value) => {
-                  llmToggleTouched.current = true;
-                  setAllowWebResearch(value);
-                  if (value && !useLlm) {
-                    setUseLlm(true);
-                  }
-                  if (value && !allowHypotheses) {
-                    setAllowHypotheses(true);
-                  }
-                }}
-                onExternalContextChange={setExternalContext}
-                onUseLlmChange={(value) => {
-                  llmToggleTouched.current = true;
-                  setUseLlm(value);
-                  if (!value) {
-                    setAllowHypotheses(false);
-                    setAllowWebResearch(false);
-                  }
-                }}
-                pinnedCount={pinnedCount}
-                useLlm={useLlm}
-              />
             </div>
-          </div>
+          ) : (
+            <div className="border-b border-[color:rgba(67,57,47,0.08)] px-6 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="eyebrow">Orbbi</p>
+                  <p className="mt-2 text-sm text-[color:var(--text-soft)]">
+                    Un espacio para preguntar por fechas, caídas y patrones horarios.
+                  </p>
+                </div>
 
-          <div className="glass-scroll flex-1 overflow-y-auto px-4 py-6 sm:px-6">
-            <div className={hasConversation ? "mx-auto max-w-4xl space-y-6" : "mx-auto w-full max-w-5xl space-y-6 px-4 py-10"}>
+                <Link
+                  className="rounded-full border border-[color:rgba(67,57,47,0.08)] bg-[color:rgba(255,255,255,0.76)] px-4 py-2 text-sm font-medium text-[color:var(--text-strong)] transition hover:border-[color:rgba(255,122,31,0.18)]"
+                  href="/dashboard"
+                >
+                  Abrir dashboard
+                </Link>
+              </div>
+            </div>
+          )}
+
+          <div className="glass-scroll min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+            <div
+              className={
+                hasConversation
+                  ? "mx-auto max-w-4xl space-y-6 px-6 py-8"
+                  : "mx-auto flex min-h-full w-full max-w-5xl items-center justify-center px-6 py-6"
+              }
+            >
               {hasConversation ? (
                 activeSession.turns.map((turn, index) => {
                   const payload = turn.payload;
@@ -1064,27 +1155,113 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
                   );
                 })
               ) : (
-                <div className="flex min-h-[calc(100dvh-22rem)] items-center justify-center">
-                  <div className="chat-empty-stage flex w-full flex-col items-center text-center">
-                    <div className="chat-empty-emblem">
-                      <span className="copilot-brand-mark relative z-10 scale-[1.25]" />
+                <div className="chat-empty-stage flex w-full items-center justify-center">
+                  <div className="relative mx-auto flex w-full max-w-[980px] -translate-y-6 flex-col items-center text-center xl:-translate-y-8">
+                    <div
+                      className={[
+                        "chat-particle-orb transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                        showWelcomeHero
+                          ? "opacity-100 scale-100"
+                          : "pointer-events-none opacity-0 scale-75 -translate-y-8",
+                      ].join(" ")}
+                    >
+                      <LandingParticleField
+                        activeLabel={null}
+                        mode="copilot"
+                        pointerRepel={false}
+                        transparent
+                      />
                     </div>
-                    <p
-                      className="mt-8 text-[clamp(2.8rem,6vw,4.6rem)] font-normal tracking-[-0.06em] text-[color:var(--chat-ink)]"
-                      style={{ fontFamily: "var(--font-brand), cursive" }}
+
+                    <div
+                      className={[
+                        "w-full transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                        showWelcomeHero ? "mt-4 opacity-100" : "mt-0 opacity-100",
+                      ].join(" ")}
                     >
-                      {welcomeTitle}
-                    </p>
-                    <h2
-                      className="mt-2 max-w-[14ch] text-[clamp(2rem,4vw,3.2rem)] font-semibold tracking-[-0.05em] text-[color:var(--text-strong)]"
-                      style={{ fontFamily: "var(--font-heading), serif" }}
-                    >
-                      ¿Qué quiere entender hoy?
-                    </h2>
-                    <p className="mt-4 max-w-2xl text-sm leading-7 text-[color:var(--chat-soft-ink)]">
-                      Pregunte por una fecha, una caída, una franja horaria o una comparación entre periodos.
-                    </p>
-                    <div className="mt-8 w-full">{renderComposer({ centered: true })}</div>
+                      <div
+                        className={[
+                          "transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                          showWelcomeHero
+                            ? "max-h-[16rem] opacity-100 translate-y-0"
+                            : "pointer-events-none max-h-0 overflow-hidden opacity-0 -translate-y-6",
+                        ].join(" ")}
+                      >
+                        <div className="relative mx-auto min-h-[5.6rem] min-w-[15ch] overflow-visible py-2">
+                          {greetingFaces.map((face, index) => (
+                            <span
+                              className={[
+                                "absolute inset-0 flex items-center justify-center whitespace-nowrap text-[clamp(2.5rem,5vw,4.2rem)] font-normal leading-[1.08] tracking-[-0.06em] transition-all duration-700",
+                                face.tone,
+                                index === greetingFaceIndex
+                                  ? "translate-y-0 scale-100 opacity-100"
+                                  : "translate-y-5 scale-[0.96] opacity-0",
+                              ].join(" ")}
+                              key={face.fontFamily}
+                              style={{ fontFamily: face.fontFamily }}
+                            >
+                              {welcomeTitle}
+                            </span>
+                          ))}
+                        </div>
+                        <h2
+                          className="mt-1 text-[clamp(1.9rem,4vw,3rem)] font-semibold tracking-[-0.05em] text-[color:var(--text-strong)]"
+                          style={{ fontFamily: "var(--font-heading), serif" }}
+                        >
+                          ¿Qué quiere revisar?
+                        </h2>
+                        <p className="mx-auto mt-3 max-w-2xl text-sm leading-7 text-[color:var(--chat-soft-ink)]">
+                          Cobertura, anomalías, horas críticas y comparaciones con respaldo.
+                        </p>
+                      </div>
+
+                      <div className={showWelcomeHero ? "mt-7 w-full" : "mt-0 w-full"}>
+                        {renderComposer({ centered: true })}
+                      </div>
+                    </div>
+
+                    <div className="mt-3 w-full max-w-[760px]">
+                      <ChatSettingsPanel
+                        allowHypotheses={allowHypotheses}
+                        allowWebResearch={allowWebResearch}
+                        backendHealth={backendHealth}
+                        compact
+                        externalContext={externalContext}
+                        llmReady={llmReady}
+                        notice={notice}
+                        onAllowHypothesesChange={(value) => {
+                          llmToggleTouched.current = true;
+                          setAllowHypotheses(value);
+                          if (value && !useLlm) {
+                            setUseLlm(true);
+                          }
+                          if (!value) {
+                            setAllowWebResearch(false);
+                          }
+                        }}
+                        onAllowWebResearchChange={(value) => {
+                          llmToggleTouched.current = true;
+                          setAllowWebResearch(value);
+                          if (value && !useLlm) {
+                            setUseLlm(true);
+                          }
+                          if (value && !allowHypotheses) {
+                            setAllowHypotheses(true);
+                          }
+                        }}
+                        onExternalContextChange={setExternalContext}
+                        onUseLlmChange={(value) => {
+                          llmToggleTouched.current = true;
+                          setUseLlm(value);
+                          if (!value) {
+                            setAllowHypotheses(false);
+                            setAllowWebResearch(false);
+                          }
+                        }}
+                        pinnedCount={pinnedCount}
+                        useLlm={useLlm}
+                      />
+                    </div>
                   </div>
                 </div>
               )}

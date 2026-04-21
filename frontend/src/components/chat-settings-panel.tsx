@@ -23,13 +23,15 @@ type ChatSettingsPanelProps = Readonly<{
   onUseLlmChange: (value: boolean) => void;
 }>;
 
-function CompactModeChip({
+function CompactModeSwitch({
   active,
+  caption,
   disabled,
   label,
   onClick,
 }: Readonly<{
   active: boolean;
+  caption?: string;
   disabled?: boolean;
   label: string;
   onClick: () => void;
@@ -37,18 +39,45 @@ function CompactModeChip({
   return (
     <button
       className={[
-        "rounded-full border px-3 py-2 text-xs font-medium transition",
+        "group inline-flex min-h-14 min-w-[152px] items-center justify-between gap-4 rounded-[20px] border px-4 py-3 text-left transition",
         disabled
           ? "cursor-not-allowed border-[color:rgba(67,57,47,0.08)] bg-[color:rgba(255,255,255,0.48)] text-[color:rgba(67,58,49,0.42)]"
           : active
-            ? "border-[color:rgba(255,122,31,0.18)] bg-[linear-gradient(135deg,rgba(255,122,31,0.16),rgba(255,255,255,0.84))] text-[color:#2a1408]"
-            : "border-[color:rgba(67,57,47,0.08)] bg-[color:rgba(255,255,255,0.7)] text-[color:rgba(67,58,49,0.72)] hover:border-[color:rgba(255,122,31,0.18)] hover:text-[color:#2a1408]",
+            ? "border-[color:rgba(255,122,31,0.26)] bg-[linear-gradient(135deg,rgba(255,122,31,0.18),rgba(255,255,255,0.92)_34%,rgba(255,194,160,0.56))] text-[color:#2a1408] shadow-[0_16px_34px_rgba(255,122,31,0.14),inset_0_1px_0_rgba(255,255,255,0.68)]"
+            : "border-[color:rgba(67,57,47,0.08)] bg-[linear-gradient(180deg,rgba(255,255,255,0.78),rgba(246,241,235,0.7))] text-[color:rgba(67,58,49,0.72)] hover:border-[color:rgba(255,122,31,0.18)] hover:text-[color:#2a1408]",
       ].join(" ")}
       disabled={disabled}
       onClick={onClick}
+      role="switch"
+      aria-checked={active}
       type="button"
     >
-      {label}
+      <span className="min-w-0">
+        <span className="block text-sm font-medium leading-5">{label}</span>
+        {caption ? (
+          <span className="mt-1 block text-[11px] uppercase tracking-[0.16em] text-[color:rgba(67,58,49,0.46)]">
+            {caption}
+          </span>
+        ) : null}
+      </span>
+
+      <span
+        className={[
+          "relative inline-flex h-7 w-12 shrink-0 rounded-full border transition",
+          active
+            ? "border-[color:rgba(255,122,31,0.28)] bg-[linear-gradient(135deg,rgba(255,122,31,0.42),rgba(255,190,144,0.76))] shadow-[0_0_18px_rgba(255,122,31,0.2)]"
+            : "border-[color:rgba(67,57,47,0.08)] bg-[color:rgba(67,57,47,0.08)]",
+        ].join(" ")}
+      >
+        <span
+          className={[
+            "absolute top-1 inline-flex size-5 rounded-full shadow-[0_8px_18px_rgba(18,14,10,0.18)] transition-all duration-300",
+            active
+              ? "left-6 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(255,231,214,0.92))]"
+              : "left-1 bg-[color:#fff9f4]",
+          ].join(" ")}
+        />
+      </span>
     </button>
   );
 }
@@ -70,7 +99,7 @@ export function ChatSettingsPanel({
 }: ChatSettingsPanelProps) {
   if (compact) {
     return (
-      <section className="chat-inline-controls rounded-[28px] px-4 py-4">
+      <section className="chat-inline-controls px-4 py-4">
         <div className="relative z-10">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0">
@@ -79,24 +108,30 @@ export function ChatSettingsPanel({
                   <span className="copilot-brand-mark" />
                   Opciones
                 </span>
-                <InfoTooltip content="Ajuste el modo de respuesta sin salir de la conversación." />
+                <InfoTooltip
+                  content="Active solo lo necesario: redacción para pulir, hipótesis para explorar y web para contrastar afuera."
+                  side="right"
+                />
               </div>
 
-              <div className="mt-3 flex flex-wrap gap-2">
-                <CompactModeChip
+              <div className="mt-3 flex flex-wrap gap-3">
+                <CompactModeSwitch
                   active={useLlm && llmReady}
+                  caption="pulir"
                   disabled={!llmReady}
                   label="Redacción"
                   onClick={() => onUseLlmChange(!(useLlm && llmReady))}
                 />
-                <CompactModeChip
+                <CompactModeSwitch
                   active={allowHypotheses && llmReady}
+                  caption="explorar"
                   disabled={!llmReady}
                   label="Hipótesis"
                   onClick={() => onAllowHypothesesChange(!(allowHypotheses && llmReady))}
                 />
-                <CompactModeChip
+                <CompactModeSwitch
                   active={allowWebResearch && llmReady}
+                  caption="contrastar"
                   disabled={!llmReady || !allowHypotheses}
                   label="Web"
                   onClick={() => onAllowWebResearchChange(!(allowWebResearch && llmReady))}
@@ -105,27 +140,18 @@ export function ChatSettingsPanel({
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <span className="copilot-pill rounded-full px-3 py-1 text-xs">
-                {llmReady ? "motor listo" : "solo datos"}
-              </span>
-              <span className="copilot-pill rounded-full px-3 py-1 text-xs">
-                {backendHealth?.chat.memory_enabled ? "memoria" : "sin memoria"}
-              </span>
-              <span className="copilot-pill rounded-full px-3 py-1 text-xs">
-                {pinnedCount} piezas
-              </span>
               <Link
                 className="rounded-full border border-[color:rgba(67,57,47,0.08)] bg-[color:rgba(255,255,255,0.74)] px-3 py-2 text-xs font-medium text-[color:rgba(42,20,8,0.82)] transition hover:border-[color:rgba(255,122,31,0.18)]"
                 href="/dashboard"
               >
-                Abrir tablero
+                Abrir dashboard
               </Link>
             </div>
           </div>
 
-          <details className="mt-4 rounded-[22px] border border-[color:rgba(67,57,47,0.08)] bg-[color:rgba(255,255,255,0.68)] px-4 py-3">
+          <details className="mt-4 rounded-[20px] border border-[color:rgba(67,57,47,0.08)] bg-[color:rgba(255,255,255,0.68)] px-4 py-3">
             <summary className="cursor-pointer list-none text-sm font-medium text-[color:var(--text-strong)]">
-              Contexto extra
+              Añadir contexto
             </summary>
             <p className="mt-2 text-sm leading-6 text-[color:var(--text-soft)]">
               Úselo para promos, incidentes internos o señales externas conocidas por su equipo.

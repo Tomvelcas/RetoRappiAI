@@ -17,7 +17,7 @@ export function ChatThinkingCore({
   active,
   compact = false,
   detail,
-  label = "OrbbiBoard",
+  label = "Orbbi",
   subtitle,
   title,
 }: ChatThinkingCoreProps) {
@@ -57,10 +57,10 @@ export function ChatThinkingCore({
             ].join(" ")}
             style={{
               fontFamily:
-                title === "OrbbiBoard"
+                title === "Orbbi"
                   ? "var(--font-brand), cursive"
                   : "var(--font-heading), serif",
-              fontWeight: title === "OrbbiBoard" ? 400 : undefined,
+              fontWeight: title === "Orbbi" ? 400 : undefined,
             }}
           >
             {title}

@@ -2,6 +2,8 @@
 
 import { useEffect, useRef } from "react";
 
+import { secureRandom } from "@/lib/secure-random";
+
 type SignalDotFieldProps = {
   className?: string;
   density?: number;
@@ -55,8 +57,8 @@ export function SignalDotField({
           dots.push({
             x,
             y,
-            phase: Math.random() * Math.PI * 2,
-            size: Math.random() * 1.1 + 0.55,
+            phase: secureRandom() * Math.PI * 2,
+            size: secureRandom() * 1.1 + 0.55,
           });
         }
       }
