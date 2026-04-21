@@ -2,6 +2,8 @@
 
 import { useEffect, useRef } from "react";
 
+import { secureRandom, secureRandomInt } from "@/lib/secure-random";
+
 type LandingParticleFieldProps = Readonly<{
   activeLabel: string | null;
   mode: "copilot" | "dashboard" | "idle";
@@ -128,14 +130,14 @@ export function LandingParticleField({
 
     function initParticles() {
       for (let index = 0; index < PARTICLE_COUNT; index += 1) {
-        px[index] = (Math.random() - 0.5) * width * 2;
-        py[index] = (Math.random() - 0.5) * height * 2;
-        pz[index] = (Math.random() - 0.5) * 1000;
+        px[index] = (secureRandom() - 0.5) * width * 2;
+        py[index] = (secureRandom() - 0.5) * height * 2;
+        pz[index] = (secureRandom() - 0.5) * 1000;
         vx[index] = 0;
         vy[index] = 0;
         vz[index] = 0;
         hue[index] = (index / PARTICLE_COUNT) * 270;
-        phase[index] = Math.random() * Math.PI * 2;
+        phase[index] = secureRandom() * Math.PI * 2;
       }
     }
 
@@ -216,15 +218,15 @@ export function LandingParticleField({
         for (let x = 0; x < canvasWidth; x += step) {
           if (data[(y * canvasWidth + x) * 4 + 3] > 112) {
             points.push(
-              x - canvasWidth / 2 + (Math.random() - 0.5) * 0.8,
-              y - canvasHeight / 2 + (Math.random() - 0.5) * 0.8,
+              x - canvasWidth / 2 + (secureRandom() - 0.5) * 0.8,
+              y - canvasHeight / 2 + (secureRandom() - 0.5) * 0.8,
             );
           }
         }
       }
 
       for (let index = points.length / 2 - 1; index > 0; index -= 1) {
-        const swapIndex = Math.floor(Math.random() * (index + 1));
+        const swapIndex = secureRandomInt(index + 1);
         const currentPointIndex = index * 2;
         const swapPointIndex = swapIndex * 2;
         const pointX = points[currentPointIndex];

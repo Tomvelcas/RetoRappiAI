@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 
 import { BlurTextReveal } from "@/components/ui/blur-text-reveal";
+import { secureRandomInt } from "@/lib/secure-random";
 
 interface CosmicParallaxBgProps {
   head: string;
@@ -27,8 +28,8 @@ const CosmicParallaxBg: React.FC<CosmicParallaxBgProps> = ({
     const shadows: string[] = [];
 
     for (let index = 0; index < count; index += 1) {
-      const x = Math.floor(Math.random() * 2000);
-      const y = Math.floor(Math.random() * 2000);
+      const x = secureRandomInt(2000);
+      const y = secureRandomInt(2000);
       shadows.push(`${x}px ${y}px #FFF`);
     }
 
