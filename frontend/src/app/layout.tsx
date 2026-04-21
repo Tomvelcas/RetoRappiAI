@@ -23,8 +23,8 @@ const brandFont = Lobster({
 });
 
 export const metadata: Metadata = {
-  title: "Panel de disponibilidad",
-  description: "Dashboard visual y copiloto analítico para explorar históricos de disponibilidad.",
+  title: "OrbbiBoard",
+  description: "Tablero y asistente analítico para explorar históricos de disponibilidad.",
 };
 
 export default function RootLayout({

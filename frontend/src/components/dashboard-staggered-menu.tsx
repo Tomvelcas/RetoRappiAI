@@ -143,7 +143,7 @@ export function DashboardStaggeredMenu({
             <div className="flex items-center gap-3">
               <span className="copilot-brand-mark" />
               <p className="eyebrow text-[10px] text-[color:rgba(255,240,232,0.56)]">
-                navigation
+                navegación
               </p>
             </div>
 
@@ -151,7 +151,7 @@ export function DashboardStaggeredMenu({
               className="mt-6 text-[1.8rem] font-semibold tracking-[-0.06em] text-[color:#fff8f4]"
               style={{ fontFamily: "var(--font-heading), serif" }}
             >
-              Menu
+              Menú
             </p>
 
             <ul className="mt-8 space-y-2" role="list">

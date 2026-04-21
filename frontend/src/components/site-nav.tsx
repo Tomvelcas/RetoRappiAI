@@ -7,13 +7,13 @@ import { BackendStatusBadge } from "@/components/backend-status-badge";
 
 const navItems = [
   { href: "/", label: "Inicio" },
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/chat", label: "Copilot" },
+  { href: "/dashboard", label: "Tablero" },
+  { href: "/chat", label: "Asistente" },
 ];
 
 export function SiteNav() {
   const pathname = usePathname();
-  if (pathname === "/" || pathname === "/dashboard") {
+  if (pathname === "/" || pathname === "/dashboard" || pathname === "/chat") {
     return null;
   }
 
@@ -39,12 +39,12 @@ export function SiteNav() {
           <div>
             <p
               className={[
-                "text-base font-semibold tracking-[-0.03em]",
+                "text-[1.4rem] font-normal tracking-[-0.03em]",
                 isStarterPage ? "text-[color:#fff7f3]" : "text-[color:var(--text-strong)]",
               ].join(" ")}
-              style={{ fontFamily: "var(--font-heading), serif" }}
+              style={{ fontFamily: "var(--font-brand), cursive" }}
             >
-              Availability Studio
+              OrbbiBoard
             </p>
             <p
               className={[
@@ -52,7 +52,7 @@ export function SiteNav() {
                 isStarterPage ? "text-[color:rgba(255,239,232,0.62)]" : "text-[color:var(--text-soft)]",
               ].join(" ")}
             >
-              starter + dashboard + copilot
+              inicio + tablero + asistente
             </p>
           </div>
         </Link>

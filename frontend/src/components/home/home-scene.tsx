@@ -7,6 +7,7 @@ import Image from "next/image";
 
 import { HeroOrbitSection } from "@/components/home/hero-orbit-section";
 import { NavigationChoicePanel } from "@/components/home/navigation-choice-panel";
+import { SolutionArchitectureSection } from "@/components/home/solution-architecture-section";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -61,60 +62,55 @@ const HOME_COPY = {
 
 const CTA_ASSETS = [
   {
-    className: "left-[-3%] top-[14%] hidden md:block w-36 lg:w-44",
-    depth: 0.34,
-    glow: "rgba(255,166,112,0.12)",
+    className: "left-[4%] top-[11%] hidden lg:block w-28 xl:w-32",
+    depth: 0.24,
+    glow: "rgba(255,190,118,0.12)",
     height: 1024,
-    src: "/obj2.png",
+    src: "/obj1.png",
     width: 1536,
   },
   {
-    className: "left-[4%] bottom-[10%] hidden lg:block w-42",
-    depth: 0.76,
-    glow: "rgba(255,140,72,0.12)",
+    className: "left-[2%] bottom-[8%] hidden lg:block w-[11rem] xl:w-[13rem]",
+    depth: 0.86,
+    glow: "rgba(255,140,72,0.14)",
     height: 1365,
     src: "/obj5.png",
     width: 2048,
   },
   {
-    className: "right-[2%] top-[14%] hidden lg:block w-40",
-    depth: 0.48,
-    glow: "rgba(255,190,124,0.1)",
+    className: "right-[-1%] top-[10%] hidden md:block w-[17rem] lg:w-[21rem] xl:w-[23rem]",
+    depth: 0.72,
+    glow: "rgba(92,177,255,0.14)",
     height: 1024,
-    src: "/obj3.png",
+    src: "/obj2.png",
     width: 1536,
   },
+] as const;
+
+const SOLUTION_ASSETS = [
   {
-    className: "right-[-2%] bottom-[2%] hidden xl:block w-[18rem]",
-    depth: 0.95,
-    glow: "rgba(255,118,62,0.11)",
-    height: 1536,
-    src: "/obj6.png",
-    width: 1024,
-  },
-  {
-    className: "left-[30%] top-[7%] hidden lg:block w-28",
-    depth: 0.58,
-    glow: "rgba(255,206,134,0.1)",
-    height: 2000,
-    src: "/obj4.webp",
-    width: 2000,
-  },
-  {
-    className: "left-[20%] bottom-[6%] hidden lg:block w-32 lg:w-40",
-    depth: 0.88,
-    glow: "rgba(255,146,84,0.1)",
+    className: "left-[5%] bottom-[6%] hidden lg:block w-[8.5rem] lg:w-40",
+    depth: 0.9,
+    glow: "rgba(255,146,84,0.12)",
     height: 1024,
     src: "/pj1.png",
     width: 1536,
   },
   {
-    className: "right-[12%] top-[8%] hidden md:block w-32 lg:w-40",
+    className: "right-[4%] top-[12%] hidden lg:block w-[5.5rem] lg:w-28",
+    depth: 0.54,
+    glow: "rgba(255,186,132,0.08)",
+    height: 2000,
+    src: "/obj4.webp",
+    width: 2000,
+  },
+  {
+    className: "right-[1%] bottom-[3%] hidden xl:block w-[12rem] 2xl:w-[15rem]",
     depth: 0.72,
-    glow: "rgba(255,146,84,0.1)",
-    height: 1024,
-    src: "/pj2.png",
-    width: 1536,
+    glow: "rgba(255,140,80,0.12)",
+    height: 1536,
+    src: "/obj6.png",
+    width: 1024,
   },
 ] as const;
 
@@ -148,12 +144,39 @@ function CtaParallaxSet() {
   );
 }
 
+function SolutionParallaxSet() {
+  return (
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
+      {SOLUTION_ASSETS.map((object) => (
+        <div
+          className={`absolute ${object.className}`}
+          data-solution-asset
+          data-solution-depth={object.depth}
+          key={object.src}
+        >
+          <div className="absolute inset-[12%] rounded-full blur-3xl" style={{ background: object.glow }} />
+          <div className="home-cinematic-asset relative opacity-[0.74]">
+            <Image
+              alt=""
+              className="h-auto w-full object-contain"
+              height={object.height}
+              src={object.src}
+              width={object.width}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function HomeScene({ locale }: HomeSceneProps) {
   const copy = HOME_COPY[locale];
   const journeyRef = useRef<HTMLElement>(null);
   const heroLayerRef = useRef<HTMLDivElement>(null);
   const choicesSectionRef = useRef<HTMLElement>(null);
   const ctaStageRef = useRef<HTMLDivElement>(null);
+  const solutionSectionRef = useRef<HTMLDivElement>(null);
   const [reducedMotion, setReducedMotion] = useState(true);
 
   useEffect(() => {
@@ -183,8 +206,9 @@ export function HomeScene({ locale }: HomeSceneProps) {
     const heroLayer = heroLayerRef.current;
     const choicesSection = choicesSectionRef.current;
     const ctaStage = ctaStageRef.current;
+    const solutionSection = solutionSectionRef.current;
 
-    if (!journey || !heroLayer || !choicesSection || !ctaStage) {
+    if (!journey || !heroLayer || !choicesSection || !ctaStage || !solutionSection) {
       return;
     }
 
@@ -198,6 +222,9 @@ export function HomeScene({ locale }: HomeSceneProps) {
       const subtitle = heroLayer.querySelector("#subtitle");
       const ctaAssets = gsap.utils.toArray<HTMLElement>("[data-cta-asset]", choicesSection);
       const choiceCards = gsap.utils.toArray<HTMLElement>("[data-home-choice-card]", choicesSection);
+      const solutionAssets = gsap.utils.toArray<HTMLElement>("[data-solution-asset]", solutionSection);
+      const solutionCards = gsap.utils.toArray<HTMLElement>("[data-solution-card]", solutionSection);
+      const solutionStages = gsap.utils.toArray<HTMLElement>("[data-solution-stage]", solutionSection);
 
       gsap.set(ctaStage, {
         autoAlpha: 0.1,
@@ -208,13 +235,14 @@ export function HomeScene({ locale }: HomeSceneProps) {
       });
 
       ctaAssets.forEach((object, index) => {
-        const drift = 14 + index * 4;
+        const drift = 14 + index * 5;
         gsap.to(object, {
-          duration: 4.4 + index * 0.45,
+          duration: 4.8 + index * 0.5,
           ease: "sine.inOut",
           repeat: -1,
-          x: index % 2 === 0 ? drift * 0.55 : drift * -0.45,
-          y: index % 2 === 0 ? -drift : drift * 0.7,
+          rotate: index % 2 === 0 ? -2.8 : 2.8,
+          x: index % 2 === 0 ? drift * 0.6 : drift * -0.5,
+          y: index % 2 === 0 ? -drift : drift * 0.76,
           yoyo: true,
         });
       });
@@ -299,21 +327,52 @@ export function HomeScene({ locale }: HomeSceneProps) {
       gsap.to(ctaAssets, {
         rotate: (index, target) => {
           const depth = Number((target as HTMLElement).dataset.ctaDepth ?? "1");
-          return depth * (index % 2 === 0 ? -9 : 9);
+          return depth * (index % 2 === 0 ? -12 : 12);
         },
         xPercent: (index, target) => {
           const depth = Number((target as HTMLElement).dataset.ctaDepth ?? "1");
-          return depth * (index % 2 === 0 ? -10 : 10);
+          return depth * (index % 2 === 0 ? -14 : 14);
         },
         yPercent: (index, target) => {
           const depth = Number((target as HTMLElement).dataset.ctaDepth ?? "1");
-          return depth * -14;
+          return depth * -18;
         },
         scrollTrigger: {
-          scrub: 1.15,
+          scrub: 1.2,
           start: "top bottom",
           end: "bottom top",
           trigger: choicesSection,
+        },
+      });
+
+      solutionAssets.forEach((asset, index) => {
+        const drift = 12 + index * 5;
+
+        gsap.to(asset, {
+          duration: 5.2 + index * 0.65,
+          ease: "sine.inOut",
+          repeat: -1,
+          rotate: index % 2 === 0 ? 3.8 : -3.8,
+          x: index % 2 === 0 ? drift * 0.42 : drift * -0.38,
+          y: index % 2 === 0 ? -drift : drift * 0.62,
+          yoyo: true,
+        });
+      });
+
+      gsap.to(solutionAssets, {
+        xPercent: (index, target) => {
+          const depth = Number((target as HTMLElement).dataset.solutionDepth ?? "1");
+          return depth * (index % 2 === 0 ? -8 : 8);
+        },
+        yPercent: (index, target) => {
+          const depth = Number((target as HTMLElement).dataset.solutionDepth ?? "1");
+          return depth * -12;
+        },
+        scrollTrigger: {
+          scrub: 1,
+          start: "top bottom",
+          end: "bottom top",
+          trigger: solutionSection,
         },
       });
 
@@ -342,6 +401,97 @@ export function HomeScene({ locale }: HomeSceneProps) {
           },
         );
       }
+
+      if (solutionCards.length > 0) {
+        gsap.fromTo(
+          solutionCards,
+          {
+            autoAlpha: 0,
+            scale: 0.96,
+            y: 40,
+          },
+          {
+            autoAlpha: 1,
+            duration: 0.92,
+            ease: "power3.out",
+            scale: 1,
+            stagger: 0.08,
+            y: 0,
+            scrollTrigger: {
+              start: "top 72%",
+              toggleActions: "play none none reverse",
+              trigger: solutionSection,
+            },
+          },
+        );
+      }
+
+      if (solutionStages.length > 0) {
+        gsap.fromTo(
+          solutionStages,
+          {
+            autoAlpha: 0,
+            x: -16,
+          },
+          {
+            autoAlpha: 1,
+            duration: 0.7,
+            ease: "power2.out",
+            stagger: 0.06,
+            x: 0,
+            scrollTrigger: {
+              start: "top 76%",
+              toggleActions: "play none none reverse",
+              trigger: solutionSection,
+            },
+          },
+        );
+      }
+
+      gsap.to(ctaStage, {
+        autoAlpha: 0.28,
+        scale: 0.95,
+        yPercent: -12,
+        scrollTrigger: {
+          scrub: 1.15,
+          start: "top bottom",
+          end: "top 34%",
+          trigger: solutionSection,
+        },
+      });
+
+      if (choiceCards.length > 0) {
+        gsap.to(choiceCards, {
+          rotateX: -8,
+          scale: 0.97,
+          yPercent: -8,
+          scrollTrigger: {
+            scrub: 1.05,
+            start: "top bottom",
+            end: "top 36%",
+            trigger: solutionSection,
+          },
+        });
+      }
+
+      gsap.fromTo(
+        solutionSection,
+        {
+          autoAlpha: 0.82,
+          y: 84,
+        },
+        {
+          autoAlpha: 1,
+          ease: "none",
+          y: 0,
+          scrollTrigger: {
+            scrub: 1.15,
+            start: "top bottom",
+            end: "top 30%",
+            trigger: solutionSection,
+          },
+        },
+      );
     }, journey);
 
     return () => ctx.revert();
@@ -387,6 +537,15 @@ export function HomeScene({ locale }: HomeSceneProps) {
           Creado por Tomás Velásquez para Reto Rappi
         </footer>
       </section>
+
+      <div className="relative" ref={solutionSectionRef}>
+        <div
+          aria-hidden="true"
+          className="absolute inset-x-0 top-0 z-10 h-28 bg-[linear-gradient(180deg,#090909_0%,rgba(9,9,9,0.66)_30%,rgba(255,247,241,0)_100%)]"
+        />
+        <SolutionParallaxSet />
+        <SolutionArchitectureSection locale={locale} />
+      </div>
     </main>
   );
 }

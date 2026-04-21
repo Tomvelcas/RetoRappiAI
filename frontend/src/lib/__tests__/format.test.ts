@@ -20,21 +20,21 @@ import {
 
 describe("format helpers", () => {
   it("formats dates, numbers and percentages predictably", () => {
-    expect(formatShortDate("2026-04-20")).toBe("Apr 20");
-    expect(formatLongDate("2026-04-20")).toBe("Apr 20, 2026");
-    expect(formatCompactNumber(12500)).toBe("12.5K");
-    expect(formatCoverage(0.834)).toBe("83.4%");
+    expect(formatShortDate("2026-04-20")).toBe("20 de abr");
+    expect(formatLongDate("2026-04-20")).toBe("20 de abr de 2026");
+    expect(formatCompactNumber(12500)).toBe("12,5 k");
+    expect(formatCoverage(0.834)).toBe("83,4%");
     expect(formatHourFromNumber(7)).toBe("07:00");
   });
 
   it("maps status labels and visual tokens", () => {
-    expect(confidenceLabel(null)).toBe("steady");
-    expect(confidenceLabel("high")).toBe("high");
+    expect(confidenceLabel(null)).toBe("estable");
+    expect(confidenceLabel("high")).toBe("alta");
     expect(coverageTone("high")).toContain("--signal-cyan");
     expect(coverageChip("medium")).toContain("--signal-amber");
-    expect(modeLabel("llm_enhanced")).toBe("polished");
-    expect(modeLabel("deterministic_fallback")).toBe("polish unavailable");
-    expect(modeLabel("grounded")).toBe("grounded");
+    expect(modeLabel("llm_enhanced")).toBe("redacción mejorada");
+    expect(modeLabel("deterministic_fallback")).toBe("respaldo determinista");
+    expect(modeLabel("grounded")).toBe("basado en datos");
   });
 
   it("maps KPI and source metadata to UI-friendly labels", () => {
@@ -49,12 +49,12 @@ describe("format helpers", () => {
         confidence: "high",
       }),
     ).toEqual({
-      label: "Coverage",
+      label: "Cobertura",
       value: "91%",
       caption: "Stable vs previous window",
     });
 
-    expect(sourceLabel("availability_hourly.csv")).toBe("hourly rhythm");
+    expect(sourceLabel("availability_hourly.csv")).toBe("ritmo horario");
     expect(sourceLabel("custom_table.csv")).toBe("custom table");
   });
 
@@ -105,7 +105,7 @@ describe("format helpers", () => {
         coverage_flag: "medium",
         confidence: "medium",
       }),
-    ).toBe("Apr 18 · 09:00 · dip");
+    ).toBe("18 de abr · 09:00 · caída");
     expect(
       briefingQuestion({
         target_date: "2026-04-18",
@@ -138,6 +138,6 @@ describe("format helpers", () => {
         cautions: ["Interpret with care because coverage softened mid-day."],
         suggested_questions: ["How does this compare with the previous week?"],
       }),
-    ).toBe("What happened on 2026-04-18?");
+    ).toBe("¿Qué pasó el 2026-04-18?");
   });
 });

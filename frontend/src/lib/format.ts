@@ -7,23 +7,23 @@ import type {
   KPI,
 } from "@/lib/api";
 
-const shortDateFormatter = new Intl.DateTimeFormat("en", {
+const shortDateFormatter = new Intl.DateTimeFormat("es-CO", {
   month: "short",
   day: "numeric",
 });
 
-const longDateFormatter = new Intl.DateTimeFormat("en", {
+const longDateFormatter = new Intl.DateTimeFormat("es-CO", {
   month: "short",
   day: "numeric",
   year: "numeric",
 });
 
-const compactNumberFormatter = new Intl.NumberFormat("en", {
+const compactNumberFormatter = new Intl.NumberFormat("es-CO", {
   notation: "compact",
   maximumFractionDigits: 1,
 });
 
-const percentFormatter = new Intl.NumberFormat("en", {
+const percentFormatter = new Intl.NumberFormat("es-CO", {
   style: "percent",
   maximumFractionDigits: 1,
 });
@@ -50,10 +50,18 @@ export function formatHourFromNumber(hour: number): string {
 
 export function confidenceLabel(value: Confidence | null): string {
   if (!value) {
-    return "steady";
+    return "estable";
   }
 
-  return value;
+  if (value === "high") {
+    return "alta";
+  }
+
+  if (value === "medium") {
+    return "media";
+  }
+
+  return "baja";
 }
 
 export function coverageTone(flag: CoverageFlag): string {
@@ -82,11 +90,11 @@ export function coverageChip(flag: CoverageFlag): string {
 
 export function mapKpiToUi(kpi: KPI): { label: string; value: string; caption: string } {
   const labelMap: Record<string, string> = {
-    mean_signal: "Typical level",
-    coverage_ratio: "Coverage",
-    strongest_hour: "Peak window",
-    weakest_hour: "Softest window",
-    anomaly_count: "Sharp swings",
+    mean_signal: "Nivel típico",
+    coverage_ratio: "Cobertura",
+    strongest_hour: "Hora pico",
+    weakest_hour: "Hora baja",
+    anomaly_count: "Anomalías",
   };
 
   return {
@@ -98,23 +106,23 @@ export function mapKpiToUi(kpi: KPI): { label: string; value: string; caption: s
 
 export function modeLabel(value: string): string {
   if (value === "llm_enhanced") {
-    return "polished";
+    return "redacción mejorada";
   }
 
   if (value === "deterministic_fallback") {
-    return "polish unavailable";
+    return "respaldo determinista";
   }
 
-  return "grounded";
+  return "basado en datos";
 }
 
 export function sourceLabel(tableName: string): string {
   const mapping: Record<string, string> = {
-    "availability_daily.csv": "daily signal",
-    "availability_hourly.csv": "hourly rhythm",
-    "availability_hourly_anomalies.csv": "sharp swings",
-    "availability_quality_report.json": "data quality",
-    "availability_overview_summary.json": "overview summary",
+    "availability_daily.csv": "serie diaria",
+    "availability_hourly.csv": "ritmo horario",
+    "availability_hourly_anomalies.csv": "anomalías",
+    "availability_quality_report.json": "calidad del dato",
+    "availability_overview_summary.json": "resumen general",
   };
 
   return mapping[tableName] ?? tableName.replaceAll("_", " ").replace(".csv", "").trim();
@@ -129,10 +137,10 @@ export function getIntradayExtremes(profile: IntradayProfilePoint[]) {
 }
 
 export function anomalyLabel(item: AnomalyHighlight): string {
-  const direction = item.anomaly_direction === "high" ? "lift" : "dip";
+  const direction = item.anomaly_direction === "high" ? "alza" : "caída";
   return `${formatShortDate(item.date)} · ${formatHourFromNumber(item.hour)} · ${direction}`;
 }
 
 export function briefingQuestion(day: DayBriefing): string {
-  return `What happened on ${day.target_date}?`;
+  return `¿Qué pasó el ${day.target_date}?`;
 }

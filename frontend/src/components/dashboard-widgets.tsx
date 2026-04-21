@@ -16,6 +16,7 @@ import type { DashboardCardSize } from "@/components/dashboard-canvas";
 import type { DashboardPinnedWidget } from "@/lib/dashboard-store";
 import {
   anomalyLabel,
+  confidenceLabel,
   coverageChip,
   coverageTone,
   formatCompactNumber,
@@ -470,11 +471,11 @@ export function OrbInsightWidget({
 
   return (
     <WidgetChrome
-      description="Vista ejecutiva del rango activo: qué día está abierto, cuál es el nivel observado y desde dónde saltar al copiloto."
-      eyebrow="Insight central"
+      description="Vista ejecutiva del rango activo: qué fecha está abierta, cuál es el nivel observado y desde dónde saltar al asistente."
+      eyebrow="Resumen central"
       guide={{
         summary:
-          "Esta card resume el estado más importante del rango activo. Combina la lectura del día elegido con la puerta directa al copiloto para profundizar sin perder el contexto del canvas.",
+          "Esta card resume el estado más importante del rango activo. Combina la lectura de la fecha elegida con la puerta directa al asistente para profundizar sin perder el contexto del tablero.",
         signals: [
           { label: "Cobertura", value: "Cuánto soporte tiene la lectura actual." },
           { label: "Nivel medio", value: "Valor promedio observado en el día activo." },
@@ -483,14 +484,14 @@ export function OrbInsightWidget({
         ],
         bullets: [
           "Si la cobertura es baja, lea el insight con cautela antes de concluir un problema real.",
-          "Use la hora más débil para abrir el patrón intradía y revisar si la caída es puntual o repetida.",
-          "Si el día más frágil coincide con anomalías, abra el copiloto desde aquí para pedir causas o comparación.",
+          "Use la hora más débil para abrir el patrón horario y revisar si la caída es puntual o repetida.",
+          "Si el día más frágil coincide con anomalías, abra el asistente desde aquí para pedir causas o comparación.",
         ],
         nextStep:
-          "Use el botón del copiloto cuando quiera convertir este resumen en una explicación o en nuevas piezas para el canvas.",
+          "Use el botón del asistente cuando quiera convertir este resumen en una explicación o en nuevas piezas para el tablero.",
       }}
       size={size}
-      title="Overview"
+      title="Resumen"
     >
       <div className="grid gap-4">
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -592,7 +593,7 @@ export function OrbInsightWidget({
                   <div className="relative z-10 grid h-full gap-3">
                     <div className="dashboard-stage-glass-card rounded-[22px] px-4 py-3">
                       <p className="text-[11px] uppercase tracking-[0.16em] text-[color:rgba(255,232,220,0.58)]">
-                        Focus day
+                        Fecha abierta
                       </p>
                       <div className="mt-3 flex items-end justify-between gap-3">
                         <div>
@@ -604,14 +605,14 @@ export function OrbInsightWidget({
                           </p>
                         </div>
                         <span className="rounded-full border border-[color:rgba(255,255,255,0.16)] bg-[color:rgba(255,96,18,0.14)] px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-[color:#fff2ea] shadow-[0_0_18px_rgba(255,96,18,0.14)]">
-                          live
+                          activa
                         </span>
                       </div>
                     </div>
 
                     <div className="dashboard-stage-glass-card rounded-[22px] px-4 py-4">
                       <p className="text-[11px] uppercase tracking-[0.16em] text-[color:rgba(255,232,220,0.58)]">
-                        Workload
+                        Mapa
                       </p>
                       <div className="mt-3 grid grid-cols-4 gap-2">
                         {Array.from({ length: 12 }).map((_, index) => {
@@ -650,7 +651,7 @@ export function OrbInsightWidget({
                       </div>
                       <div className="dashboard-stage-glass-card rounded-[20px] px-3 py-3">
                         <p className="text-[10px] uppercase tracking-[0.16em] text-[color:rgba(255,232,220,0.58)]">
-                          Risk
+                          Riesgo
                         </p>
                         <p className="mt-2 text-lg font-semibold text-white">
                           {briefing.weakest_hour.label}
@@ -662,16 +663,16 @@ export function OrbInsightWidget({
 
                 <div className="dashboard-stage-glass-card rounded-[22px] p-4">
                   <p className="text-[11px] uppercase tracking-[0.16em] text-[color:rgba(255,232,220,0.58)]">
-                    Copilot ready
+                    Asistente listo
                   </p>
                   <p className="mt-2 text-sm leading-6 text-[color:#fff2ea]">
-                    Abra esta fecha, compare o conviértala en piezas nuevas del canvas.
+                    Abra esta fecha, compárela o conviértala en piezas nuevas del tablero.
                   </p>
                   <Link
                     className="copilot-gradient-button mt-4 inline-flex rounded-full px-4 py-2 text-sm font-medium text-[color:#fff7f3] transition"
                     href={`/chat?question=${encodeURIComponent(focusQuestion)}`}
                   >
-                    Hablar con el copilot
+                    Abrir asistente
                   </Link>
                 </div>
               </div>
@@ -771,27 +772,27 @@ export function SignalTimelineWidget({
           {actions}
         </div>
       }
-      description="La curva cuenta la historia del rango. La línea negra muestra el nivel medio por día y el fondo vertical indica cuánta cobertura sostiene cada punto."
-      eyebrow="Señal principal"
+      description="Serie diaria del rango con nivel medio y soporte observado."
+      eyebrow="Tendencia"
       guide={{
         summary:
           "Esta card es la vista maestra del histórico. Aquí debe nacer la primera hipótesis: qué día cambia la señal, si el cambio está bien cubierto y qué tan sostenido fue.",
         signals: [
           { label: "Línea negra", value: "Nivel medio observado por día." },
           { label: "Bloques de fondo", value: "Cobertura diaria: cuanto más altos, más soporte hay." },
-          { label: "Día activo", value: "Punto seleccionado para abrir el detalle del día." },
+          { label: "Fecha abierta", value: "Punto seleccionado para abrir el detalle del día." },
           { label: "Lectura operativa", value: "Contexto o caveat para interpretar la serie." },
         ],
         bullets: [
           "Busque quiebres de forma: subidas, bajadas o cambios de pendiente.",
           "Si un punto cambia mucho pero tiene baja cobertura, trátelo como señal débil y no como conclusión final.",
-          "Use esta card para elegir la fecha que luego abrirá 'Día abierto' y el copiloto.",
+          "Use esta card para elegir la fecha que luego abrirá 'Fecha abierta' y el asistente.",
         ],
         nextStep:
-          "Haga click en una fecha con cambio fuerte y luego compare su comportamiento con las anomalías y el patrón intradía.",
+          "Haga click en una fecha con cambio fuerte y luego compare su comportamiento con las anomalías y el patrón horario.",
       }}
       size={size}
-      title="Curva histórica"
+      title="Serie diaria"
     >
       <div className="grid gap-4">
         <div className="rounded-[26px] border border-[color:rgba(255,122,31,0.14)] bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.01)),linear-gradient(135deg,rgba(255,122,31,0.08),rgba(10,3,2,0.96))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_0_28px_rgba(255,96,18,0.06)]">
@@ -896,7 +897,7 @@ export function SignalTimelineWidget({
         <div className="grid gap-3 lg:grid-cols-4">
           <MetricTile
             caption={activePoint ? formatCoverage(activePoint.point.coverage_ratio) : "0%"}
-            label="Día activo"
+            label="Fecha abierta"
             tone="cyan"
             value={activePoint ? formatLongDate(activePoint.point.date) : "Sin datos"}
           />
@@ -937,24 +938,24 @@ export function DaySpotlightWidget({
   return (
     <WidgetChrome
       actions={actions}
-      description="Resumen operativo de la fecha seleccionada. Aquí se abre el día con narrativa corta, horas clave y preguntas listas para seguir explorando."
-      eyebrow="Día abierto"
+      description="Lectura puntual de la fecha activa con horas clave y respaldo."
+      eyebrow="Fecha"
       guide={{
         summary:
           "Esta card traduce una fecha en una lectura operacional. Sirve para pasar de 'veo un punto raro' a 'entiendo qué ocurrió y qué debería investigar después'.",
         signals: [
           { label: "Hora más fuerte", value: "Franja con mejor nivel observado ese día." },
           { label: "Hora más débil", value: "Franja con menor nivel observado ese día." },
-          { label: "Highlights", value: "Hechos o patrones del día listos para comunicar." },
+          { label: "Claves", value: "Hechos o patrones del día listos para comunicar." },
           { label: "Cautelas", value: "Advertencias para no sobrerreaccionar a vacíos de cobertura." },
         ],
         bullets: [
           "Empiece por el resumen del día y después contraste horas fuerte y débil.",
-          "Si la hora más débil coincide con una anomalía, abra el patrón intradía para revisar recurrencia.",
-          "Use las preguntas sugeridas como puente hacia el copiloto, no como texto decorativo.",
+          "Si la hora más débil coincide con una anomalía, abra el patrón horario para revisar recurrencia.",
+          "Use las preguntas sugeridas como puente hacia el asistente, no como texto decorativo.",
         ],
         nextStep:
-          "Si el día es importante, compare este resumen con el día anterior y luego fije la pieza al canvas desde el chat.",
+          "Si el día es importante, compare este resumen con el día anterior y luego fíjelo al tablero desde el chat.",
       }}
       size={size}
       title={formatLongDate(briefing.target_date)}
@@ -1014,7 +1015,7 @@ export function DaySpotlightWidget({
           <MetricTile
             caption={`Cobertura ${formatCoverage(briefing.coverage_ratio)}`}
             label="Confianza del día"
-            value={briefing.confidence}
+            value={confidenceLabel(briefing.confidence)}
           />
         </div>
 
@@ -1064,8 +1065,8 @@ export function IntradayRhythmWidget({
   return (
     <WidgetChrome
       actions={actions}
-      description="Patrón horario del rango activo. Aquí se entiende en qué horas la señal suele subir o caer y con qué soporte promedio sucede."
-      eyebrow="Ritmo intradía"
+      description="Patrón horario del rango activo con soporte medio por franja."
+      eyebrow="Ritmo horario"
       guide={{
         summary:
           "Use esta card para pasar del nivel diario al comportamiento por hora. Ayuda a saber si un problema es una franja puntual o un patrón que se repite todos los días.",
@@ -1081,10 +1082,10 @@ export function IntradayRhythmWidget({
           "Este widget sirve para responder 'cuándo pasa' antes de preguntar 'por qué pasa'.",
         ],
         nextStep:
-          "Después de detectar la hora crítica, pregúntele al copiloto por esa franja o compare contra un día puntual.",
+          "Después de detectar la hora crítica, pregúntele al asistente por esa franja o compárela contra un día puntual.",
       }}
       size={size}
-      title="Lectura por hora"
+      title="Patrón horario"
     >
       <div className="grid gap-4">
         <div className="grid gap-3 sm:grid-cols-3">
@@ -1160,27 +1161,27 @@ export function AnomalyPulseWidget({
   return (
     <WidgetChrome
       actions={actions}
-      description="Las anomalías convierten desviaciones en una lista priorizada. Sirven para abrir momentos puntuales donde el comportamiento se salió de lo normal."
+      description="Eventos fuera de patrón priorizados por magnitud y soporte."
       eyebrow="Anomalías"
       guide={{
         summary:
-          "Aquí aparecen los eventos que más se alejan del baseline horario. No todos implican problema; la prioridad depende de magnitud, dirección y cobertura.",
+          "Aquí aparecen los eventos que más se alejan de la base horaria esperada. No todos implican problema; la prioridad depende de magnitud, dirección y cobertura.",
         signals: [
-          { label: "Baseline", value: "Valor esperado para esa hora." },
+          { label: "Base esperada", value: "Valor esperado para esa hora." },
           { label: "Observado", value: "Valor realmente visto en el evento." },
           { label: "Z-score", value: "Qué tan lejos estuvo del comportamiento normal." },
           { label: "Confianza", value: "Mezcla de cobertura y desviación." },
         ],
         bullets: [
           "Abra primero los eventos con mayor barra y confianza alta.",
-          "Un dip con poca cobertura puede ser ruido; contraste con 'Calidad del dato'.",
-          "Si varias anomalías caen en la misma hora, revise el patrón intradía para confirmar recurrencia.",
+          "Una caída con poca cobertura puede ser ruido; contraste con 'Calidad'.",
+          "Si varias anomalías caen en la misma hora, revise el patrón horario para confirmar recurrencia.",
         ],
         nextStep:
-          "Elija una anomalía y pregunte al copiloto si está alineada con el día más frágil o con la hora más baja.",
+          "Elija una anomalía y pregunte al asistente si está alineada con el día más frágil o con la hora más baja.",
       }}
       size={size}
-      title="Momentos que merecen abrirse"
+      title="Anomalías"
     >
       <div className="grid gap-3">
         <div className="grid grid-cols-[minmax(0,1.3fr)_minmax(0,0.9fr)_minmax(0,1fr)_auto] gap-3 px-2 text-[11px] uppercase tracking-[0.14em] text-[color:var(--text-dim)]">
@@ -1202,7 +1203,7 @@ export function AnomalyPulseWidget({
                   {anomalyLabel(item)}
                 </p>
                 <p className="mt-1 text-xs text-[color:var(--text-soft)]">
-                  {item.n_points} puntos · {item.anomaly_direction === "high" ? "lift" : "dip"}
+                  {item.n_points} puntos · {item.anomaly_direction === "high" ? "alza" : "caída"}
                 </p>
               </div>
 
@@ -1228,7 +1229,7 @@ export function AnomalyPulseWidget({
               </div>
 
               <span className={`rounded-full border px-3 py-1 text-xs ${coverageChip(item.confidence)}`}>
-                {item.confidence}
+                {confidenceLabel(item.confidence)}
               </span>
             </div>
           </button>
@@ -1255,11 +1256,11 @@ export function QualityLensWidget({
   return (
     <WidgetChrome
       actions={actions}
-      description="Este panel separa datos reales de huecos de observación. Su trabajo es evitar falsas alarmas antes de sacar conclusiones operativas."
-      eyebrow="Calidad del dato"
+      description="Separa hallazgos reales de huecos de observación dentro del rango."
+      eyebrow="Calidad"
       guide={{
         summary:
-          "Use esta card como filtro de confiabilidad. Si aquí ve baja cobertura o muchos puntos faltantes, cualquier insight del canvas debe leerse con cautela.",
+          "Use esta card como filtro de confiabilidad. Si aquí ve baja cobertura o muchos puntos faltantes, cualquier hallazgo del tablero debe leerse con cautela.",
         signals: [
           { label: "Cobertura", value: "Soporte efectivo del rango seleccionado." },
           { label: "Ventanas incompletas", value: "Registros esperados que llegaron cortados." },
@@ -1275,7 +1276,7 @@ export function QualityLensWidget({
           "Antes de comunicar un hallazgo fuerte, mire esta card para decidir si habla de negocio o de calidad del dato.",
       }}
       size={size}
-      title="Cuánto confiar en el rango activo"
+      title="Calidad"
     >
       <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
         <div className="grid place-items-center rounded-[26px] border border-[color:var(--border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.01)),linear-gradient(135deg,rgba(255,122,31,0.06),rgba(10,3,2,0.96))] p-5 shadow-[0_0_22px_rgba(255,122,31,0.06)]">
@@ -1289,7 +1290,7 @@ export function QualityLensWidget({
                   {formatCoverage(coverage)}
                 </p>
                 <p className={`mt-2 text-xs ${coverageTone(quality.selected_coverage_flag)}`}>
-                  {quality.selected_coverage_flag}
+                  {confidenceLabel(quality.selected_coverage_flag)}
                 </p>
               </div>
             </div>
@@ -1407,20 +1408,20 @@ export function CoverageExtremesWidget({
       eyebrow="Cobertura"
       guide={{
         summary:
-          "Esta card ordena el rango por calidad de soporte. La izquierda muestra fechas frágiles; la derecha, fechas confiables para usar como benchmark.",
+          "Esta card ordena el rango por calidad de soporte. La izquierda muestra fechas frágiles; la derecha, fechas confiables para usar como referencia.",
         signals: [
           { label: "Días más frágiles", value: "Fechas donde el soporte fue bajo y la lectura exige cautela." },
-          { label: "Días mejor cubiertos", value: "Fechas útiles como referencia o baseline del rango." },
+          { label: "Días mejor cubiertos", value: "Fechas útiles como referencia del rango." },
           { label: "Cobertura %", value: "Porcentaje de puntos observados sobre los esperados." },
           { label: "Puntos", value: "Cuántos registros realmente sostienen cada día." },
         ],
         bullets: [
           "Abra primero los días frágiles si necesita entender dónde mirar con cuidado.",
           "Use un día muy cubierto para comparar si un cambio es real o si parece un artefacto.",
-          "Cruce estas fechas con 'Curva histórica' para ver si el soporte explica parte del movimiento.",
+          "Cruce estas fechas con 'Serie diaria' para ver si el soporte explica parte del movimiento.",
         ],
         nextStep:
-          "Seleccione una fecha de cualquiera de las dos columnas para llevarla a 'Día abierto' y al copiloto.",
+          "Seleccione una fecha de cualquiera de las dos columnas para llevarla a 'Fecha abierta' y al asistente.",
       }}
       size={size}
       title="Extremos del rango"
@@ -1491,18 +1492,18 @@ export function PinnedWidget({
           <ActionButton label="Eliminar" onClick={onRemove} tone="danger" />
         </div>
       }
-      description="Widget anclado desde el copiloto. Esto permite construir el dashboard como un canvas vivo con piezas que nacen de una conversación."
+      description="Widget fijado desde el asistente. Esto permite construir el tablero con piezas nacidas de una conversación."
       eyebrow="Widget fijado"
       guide={{
         summary:
-          "Una pieza fijada conserva una respuesta o artefacto útil del copiloto dentro del canvas. Sirve para convertir una conversación en un panel reusable.",
+          "Una pieza fijada conserva una respuesta o artefacto útil del asistente dentro del tablero. Sirve para convertir una conversación en un panel reusable.",
         signals: [
           { label: "Origen", value: widget.sourceIntent },
           { label: "Pregunta", value: widget.sourceQuestion },
         ],
         bullets: [
           "Use widgets fijados para dejar en el tablero hallazgos que quiera revisar varias veces.",
-          "Si el widget ya no aporta a la lectura principal, elimínelo para mantener el canvas limpio.",
+          "Si el widget ya no aporta a la lectura principal, elimínelo para mantener el tablero limpio.",
         ],
       }}
       size={size}

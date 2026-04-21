@@ -17,7 +17,7 @@ export function ChatThinkingCore({
   active,
   compact = false,
   detail,
-  label = "Signal Board",
+  label = "OrbbiBoard",
   subtitle,
   title,
 }: ChatThinkingCoreProps) {
@@ -44,7 +44,7 @@ export function ChatThinkingCore({
           <div className="flex flex-wrap items-center gap-3">
             <span className="inline-flex items-center gap-2 rounded-full border border-[color:rgba(255,122,31,0.14)] bg-[linear-gradient(135deg,rgba(255,255,255,0.9),rgba(255,247,241,0.82))] px-3 py-1.5 text-[11px] uppercase tracking-[0.18em] text-[color:#6a3e25]">
               <span className="copilot-brand-mark" />
-              Board
+              Tablero
             </span>
             <span className="rounded-full border border-[color:rgba(72,43,24,0.12)] bg-[color:rgba(255,255,255,0.72)] px-3 py-1.5 text-[11px] uppercase tracking-[0.18em] text-[color:#7d604d]">
               {label}
@@ -55,7 +55,13 @@ export function ChatThinkingCore({
               "mt-3 font-semibold tracking-[-0.05em] text-[color:var(--text-strong)]",
               compact ? "text-[1.45rem]" : "text-[clamp(1.9rem,3vw,3rem)]",
             ].join(" ")}
-            style={{ fontFamily: "var(--font-heading), serif" }}
+            style={{
+              fontFamily:
+                title === "OrbbiBoard"
+                  ? "var(--font-brand), cursive"
+                  : "var(--font-heading), serif",
+              fontWeight: title === "OrbbiBoard" ? 400 : undefined,
+            }}
           >
             {title}
           </h3>
@@ -87,7 +93,7 @@ export function ChatThinkingCore({
               {active ? "Analizando" : "En escucha"}
             </span>
             <span className="copilot-pill rounded-full px-3 py-1 text-[11px] uppercase tracking-[0.18em]">
-              Estado limpio
+              Datos listos
             </span>
           </div>
         </div>
@@ -103,14 +109,14 @@ export function ChatThinkingCore({
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-[10px] uppercase tracking-[0.18em] text-[color:rgba(255,232,222,0.56)]">
-                  Status
+                  Estado
                 </p>
                 <p className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-[color:var(--copilot-text)]">
-                  {active ? "Live" : "Ready"}
+                  {active ? "Activo" : "Listo"}
                 </p>
               </div>
               <span className="rounded-full border border-[color:rgba(255,255,255,0.1)] px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-[color:rgba(255,240,232,0.68)]">
-                {active ? "sync" : "idle"}
+                {active ? "sincronía" : "espera"}
               </span>
             </div>
 
@@ -142,10 +148,10 @@ export function ChatThinkingCore({
 
             <div className="mt-4 rounded-[18px] border border-[color:rgba(255,255,255,0.08)] bg-[color:rgba(255,255,255,0.04)] px-3 py-3">
               <p className="text-[10px] uppercase tracking-[0.16em] text-[color:rgba(255,232,222,0.5)]">
-                Context
+                Contexto
               </p>
               <p className="mt-2 text-sm leading-6 text-[color:rgba(255,245,238,0.84)]">
-                grounding, reasoning y salida en una sola vista
+                datos, lectura y respuesta en una sola vista
               </p>
             </div>
           </div>

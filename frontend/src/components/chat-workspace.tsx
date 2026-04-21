@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import { ChatArtifactView } from "@/components/chat-artifact";
@@ -20,7 +21,13 @@ import {
   sessionTitleFromQuestion,
   type StoredChatSession,
 } from "@/lib/chat-store";
-import { coverageChip, modeLabel, sourceLabel } from "@/lib/format";
+import {
+  confidenceLabel,
+  coverageChip,
+  formatLongDate,
+  modeLabel,
+  sourceLabel,
+} from "@/lib/format";
 
 type ChatWorkspaceProps = Readonly<{
   initialQuestion?: string | null;
@@ -33,27 +40,26 @@ const starterPrompts = [
   "¿Cuál fue la hora con menor cobertura el 11 de febrero?",
 ];
 
-const EMPTY_STATE_CARDS = [
-  {
-    title: "Brief del día",
-    body: "Lea una fecha puntual.",
-  },
-  {
-    title: "Comparación",
-    body: "Cruce dos momentos.",
-  },
-  {
-    title: "Gráfico",
-    body: "Genere una pieza para el canvas.",
-  },
-];
-
 function relativeTimeLabel(value: string): string {
   const date = new Date(value);
   return new Intl.DateTimeFormat("es", {
     month: "short",
     day: "numeric",
   }).format(date);
+}
+
+function greetingLabel(): string {
+  const hour = new Date().getHours();
+
+  if (hour < 12) {
+    return "Buenos días";
+  }
+
+  if (hour < 19) {
+    return "Buenas tardes";
+  }
+
+  return "Buenas noches";
 }
 
 function sortSessionsByRecent(sessions: StoredChatSession[]) {
@@ -82,7 +88,7 @@ function llmBannerCopy(health: BackendHealth | null): string | null {
     return "La redacción enriquecida está configurada pero el motor aún no quedó listo. Si acaba de cambiar .env o reinició contenedores, espere y refresque.";
   }
 
-  return "El motor activo está en modo solo grounded. Si ya cambió .env, reinicie el backend para habilitar redacción enriquecida.";
+  return "El motor activo está en modo solo datos. Si ya cambió .env, reinicie el backend para habilitar redacción enriquecida.";
 }
 
 function summarizeEvidence(payload: ChatQueryResponse | undefined) {
@@ -91,11 +97,11 @@ function summarizeEvidence(payload: ChatQueryResponse | undefined) {
 
 function assistantEyebrow(payload: ChatQueryResponse | undefined): string {
   if (!payload) {
-    return "Respuesta grounded";
+    return "Respuesta basada en datos";
   }
 
   const mapping: Record<string, string> = {
-    day_briefing: "Brief del día",
+    day_briefing: "Resumen del día",
     daily_coverage_profile: "Cobertura diaria",
     hourly_coverage_profile: "Cobertura horaria",
     hourly_coverage_lookup: "Consulta horaria",
@@ -104,12 +110,12 @@ function assistantEyebrow(payload: ChatQueryResponse | undefined): string {
     coverage_extremes: "Resumen de cobertura",
     data_quality_status: "Calidad del dato",
     anomaly_review: "Revisión de anomalías",
-    intraday_pattern: "Patrón intradía",
+    intraday_pattern: "Patrón horario",
     metric_definition: "Definición métrica",
-    unsupported_request: "Límite del dataset",
+    unsupported_request: "Límite del dato",
   };
 
-  return mapping[payload.intent] ?? "Respuesta grounded";
+  return mapping[payload.intent] ?? "Respuesta basada en datos";
 }
 
 function assistantSubline(payload: ChatQueryResponse | undefined): string {
@@ -119,7 +125,10 @@ function assistantSubline(payload: ChatQueryResponse | undefined): string {
 
   const start = payload.time_window.effective_start;
   const end = payload.time_window.effective_end;
-  const scope = start === end ? start : `${start} -> ${end}`;
+  const scope =
+    start === end
+      ? formatLongDate(start)
+      : `${formatLongDate(start)} a ${formatLongDate(end)}`;
 
   if (payload.answer_mode === "llm_enhanced") {
     if (payload.web_research_used) {
@@ -129,7 +138,7 @@ function assistantSubline(payload: ChatQueryResponse | undefined): string {
   }
 
   if (payload.answer_mode === "deterministic_fallback") {
-    return `Base en ${scope}. Quedó en modo grounded.`;
+    return `Base en ${scope}. Quedó en modo solo datos.`;
   }
 
   return `Base en ${scope}.`;
@@ -137,20 +146,16 @@ function assistantSubline(payload: ChatQueryResponse | undefined): string {
 
 function pinSuccessCopy(kind: "artifact" | "note"): string {
   return kind === "artifact"
-    ? "Widget fijado en el canvas del dashboard."
-    : "Insight fijado en el canvas del dashboard.";
+    ? "Widget fijado en el tablero."
+    : "Nota fijada en el tablero.";
 }
 
 function presenceTitle(isSubmitting: boolean, activeSession: StoredChatSession | null): string {
   if (isSubmitting) {
-    return "Pensando";
+    return "Analizando";
   }
 
-  if (activeSession?.turns.length) {
-    return "Copilot";
-  }
-
-  return "Copilot";
+  return "OrbbiBoard";
 }
 
 function presenceDetail(
@@ -164,7 +169,7 @@ function presenceDetail(
 
   if (activeSession?.turns.length) {
     const turnsLabel = `${activeSession.turns.length} mensajes en contexto`;
-    const modeLabel = llmReady ? "narrativa disponible" : "solo grounded";
+    const modeLabel = llmReady ? "narrativa disponible" : "solo datos";
     return `${turnsLabel}. ${modeLabel}.`;
   }
 
@@ -178,22 +183,23 @@ function presenceSubtitle(
   allowHypotheses: boolean,
   allowWebResearch: boolean,
 ): string {
-  const model = backendHealth?.llm.model ?? (backendHealth?.llm.ready ? "llm" : "motor grounded");
+  const model =
+    backendHealth?.llm.model ?? (backendHealth?.llm.ready ? "motor de lenguaje" : "motor de datos");
 
   if (isSubmitting) {
     return `${model} · razonando sobre el histórico`;
   }
 
   if (!backendHealth?.llm.ready || !useLlm) {
-    return `${model} · grounded`;
+    return `${model} · datos`;
   }
 
   if (allowWebResearch) {
-    return `${model} · grounded + contexto web`;
+    return `${model} · datos + contexto web`;
   }
 
   if (allowHypotheses) {
-    return `${model} · grounded + hipótesis`;
+    return `${model} · datos + hipótesis`;
   }
 
   return `${model} · redacción`;
@@ -212,7 +218,7 @@ function pendingResponseDetail(
     return "Ordena la evidencia y pule la salida.";
   }
 
-  return "Prepara una respuesta grounded.";
+  return "Prepara una respuesta basada en datos.";
 }
 
 export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
@@ -346,6 +352,12 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
     allowHypotheses,
     allowWebResearch,
   );
+  const hasConversation = Boolean(activeSession?.turns.length);
+  const headerTitle = hasConversation ? activeSession?.title ?? "Nuevo hilo" : heroTitle;
+  const headerDetail = hasConversation
+    ? heroDetail
+    : "Un solo espacio para preguntar, comparar y fijar piezas en el tablero.";
+  const welcomeTitle = greetingLabel();
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: "end" });
@@ -532,116 +544,287 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
     setStatusMessage(pinSuccessCopy("artifact"));
   }
 
-  return (
-    <main className="chat-page-shell mx-auto max-w-[1540px] px-4 pb-20 pt-6 sm:px-6 lg:px-8">
-      <section className="relative z-10 grid gap-5 xl:grid-cols-[260px_minmax(0,1fr)_320px]">
-        <aside className="chat-shell-card order-2 flex flex-col rounded-[34px] p-4 xl:order-1 xl:sticky xl:top-[104px] xl:max-h-[calc(100dvh-124px)]">
-          <div className="border-b border-[color:var(--border)] px-2 pb-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="eyebrow">Hilos</p>
-                <p className="mt-2 text-sm text-[color:var(--text-soft)]">Memoria local.</p>
-              </div>
+  function renderComposer({ centered = false }: Readonly<{ centered?: boolean }> = {}) {
+    return (
+      <div className={centered ? "w-full max-w-[760px]" : "mx-auto w-full max-w-4xl"}>
+        {!centered ? (
+          <div className="flex flex-wrap gap-2">
+            {followUps.slice(0, 3).map((prompt) => (
               <button
-                className="copilot-outline-button rounded-full px-3 py-2 text-sm text-[color:var(--text-strong)] transition"
-                onClick={createNewChat}
+                className="chat-kicker-chip rounded-full px-3 py-2 text-xs transition hover:text-[color:var(--text-strong)]"
+                key={prompt}
+                onClick={() => setDraft(prompt)}
                 type="button"
               >
-                Nuevo
+                {prompt}
               </button>
+            ))}
+          </div>
+        ) : null}
+
+        <div
+          className={[
+            "chat-composer-shell",
+            centered ? "rounded-[32px] px-5 py-5" : "mt-3 rounded-[28px] px-4 py-3",
+          ].join(" ")}
+        >
+          <div className="mb-3 h-px w-full bg-[linear-gradient(90deg,transparent,rgba(255,143,107,0.72),rgba(255,183,142,0.82),transparent)]" />
+          <textarea
+            className={[
+              "glass-scroll w-full resize-none bg-transparent text-sm leading-7 text-[color:var(--text-strong)] outline-none placeholder:text-[color:var(--text-dim)]",
+              centered ? "min-h-32 text-base" : "min-h-28",
+            ].join(" ")}
+            onChange={(event) => setDraft(event.target.value)}
+            placeholder="Pregunte por una fecha, una caída o una tendencia."
+            value={draft}
+          />
+
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="chat-kicker-chip rounded-full px-3 py-1.5 text-[11px] uppercase tracking-[0.16em]">
+                {llmReady ? "motor listo" : "solo datos"}
+              </span>
+              {activeSession ? (
+                <span className="chat-kicker-chip rounded-full px-3 py-1.5 text-[11px] uppercase tracking-[0.16em]">
+                  {activeSession.turns.length} mensajes
+                </span>
+              ) : null}
             </div>
 
-            <div className="mt-4 flex flex-wrap gap-2">
+            <div className="flex items-center gap-3">
+              {isSubmitting ? (
+                <span className="copilot-pill rounded-full px-3 py-2 text-xs uppercase tracking-[0.18em]">
+                  análisis activo
+                </span>
+              ) : null}
               <button
-                className="copilot-outline-button rounded-full px-3 py-2 text-xs text-[color:var(--text-soft)] transition hover:text-[color:var(--text-strong)]"
-                onClick={clearCurrentChat}
+                className="copilot-gradient-button rounded-full px-4 py-3 text-sm font-medium text-[color:#fff7f3] transition hover:opacity-92 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={isSubmitting || !draft.trim() || !activeSession}
+                onClick={() => void sendQuestion(draft)}
                 type="button"
               >
-                Limpiar hilo
-              </button>
-              <button
-                className="copilot-outline-button rounded-full px-3 py-2 text-xs text-[color:var(--text-soft)] transition hover:text-[color:var(--text-strong)]"
-                onClick={deleteCurrentChat}
-                type="button"
-              >
-                Eliminar hilo
-              </button>
-              <button
-                className="rounded-full border border-[color:rgba(178,76,89,0.18)] px-3 py-2 text-xs text-[color:var(--signal-rose)] transition hover:border-[color:rgba(178,76,89,0.32)]"
-                onClick={clearAllChats}
-                type="button"
-              >
-                Limpiar todo
+                {isSubmitting ? "Analizando..." : "Enviar"}
               </button>
             </div>
           </div>
+        </div>
 
-          <div className="glass-scroll mt-4 flex-1 space-y-2 overflow-y-auto pr-1">
+        {centered ? (
+          <div className="mt-5 flex flex-wrap justify-center gap-2">
+            {followUps.slice(0, 4).map((prompt) => (
+              <button
+                className="chat-kicker-chip rounded-full px-3 py-2 text-xs transition hover:text-[color:var(--text-strong)]"
+                key={prompt}
+                onClick={() => setDraft(prompt)}
+                type="button"
+              >
+                {prompt}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
+  return (
+    <main className="chat-page-shell mx-auto max-w-[1580px] px-3 pb-8 pt-3 sm:px-4 sm:pt-4 lg:px-6">
+      <section className="relative z-10 grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)]">
+        <aside className="chat-sidebar-shell order-2 flex flex-col rounded-[32px] p-3 xl:order-1 xl:sticky xl:top-4 xl:h-[calc(100dvh-2rem)]">
+          <button
+            className="rounded-[20px] border border-[color:rgba(255,255,255,0.08)] bg-[linear-gradient(135deg,rgba(255,255,255,0.08),rgba(255,122,31,0.2))] px-4 py-3 text-left text-sm font-medium text-white shadow-[0_18px_40px_rgba(0,0,0,0.18)] transition hover:border-[color:rgba(255,255,255,0.14)]"
+            onClick={createNewChat}
+            type="button"
+          >
+            + Nuevo hilo
+          </button>
+
+          <div className="mt-3 rounded-[24px] border border-[color:rgba(255,255,255,0.08)] bg-[color:rgba(255,255,255,0.04)] px-4 py-4">
+            <p className="text-[11px] uppercase tracking-[0.18em] text-[color:rgba(255,240,232,0.48)]">
+              OrbbiBoard
+            </p>
+            <p
+              className="mt-2 text-[1.8rem] font-normal tracking-[-0.05em] text-white"
+              style={{ fontFamily: "var(--font-brand), cursive" }}
+            >
+              Asistente
+            </p>
+            <p className="mt-2 text-sm leading-6 text-[color:rgba(255,240,232,0.68)]">
+              Conversación, contexto y tablero en una sola pantalla.
+            </p>
+          </div>
+
+          <div className="mt-4 flex items-center justify-between px-2">
+            <p className="text-[11px] uppercase tracking-[0.18em] text-[color:rgba(255,240,232,0.48)]">
+              Hilos
+            </p>
+            <span className="text-[11px] text-[color:rgba(255,240,232,0.48)]">
+              {sessions.length}
+            </span>
+          </div>
+
+          <div className="glass-scroll mt-3 flex-1 space-y-2 overflow-y-auto pr-1">
             {sessions.map((session) => {
               const isActive = session.id === activeSessionId;
 
               return (
                 <button
                   className={[
-                    "w-full rounded-[24px] border px-4 py-3 text-left transition",
+                    "w-full rounded-[22px] border px-4 py-3 text-left transition",
                     isActive
-                      ? "border-[color:rgba(21,125,120,0.24)] bg-[color:rgba(21,125,120,0.08)]"
-                      : "border-[color:var(--border)] bg-[color:var(--surface-strong)] hover:border-[color:var(--border-strong)]",
+                      ? "border-[color:rgba(255,122,31,0.18)] bg-[linear-gradient(135deg,rgba(255,122,31,0.18),rgba(255,255,255,0.05))] text-white"
+                      : "border-[color:rgba(255,255,255,0.06)] bg-[color:rgba(255,255,255,0.03)] text-[color:rgba(255,240,232,0.76)] hover:border-[color:rgba(255,255,255,0.12)] hover:bg-[color:rgba(255,255,255,0.05)]",
                   ].join(" ")}
                   key={session.id}
                   onClick={() => setActiveSessionId(session.id)}
                   type="button"
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <p className="text-sm font-medium text-[color:var(--text-strong)]">
-                      {session.title}
-                    </p>
+                    <p className="text-sm font-medium">{session.title}</p>
                     {isActive ? (
-                      <span className="rounded-full bg-[color:rgba(21,125,120,0.12)] px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-[color:var(--signal-cyan)]">
+                      <span className="rounded-full bg-[color:rgba(255,255,255,0.08)] px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-[color:#ffd7bf]">
                         activo
                       </span>
                     ) : null}
                   </div>
-                  <p className="mt-1 text-xs text-[color:var(--text-soft)]">
+                  <p className="mt-1 text-xs text-[color:rgba(255,240,232,0.56)]">
                     {session.turns.length ? `${session.turns.length} mensajes` : "Sin mensajes"}
                   </p>
-                  <p className="mt-2 text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-dim)]">
+                  <p className="mt-2 text-[11px] uppercase tracking-[0.16em] text-[color:rgba(255,240,232,0.38)]">
                     {relativeTimeLabel(session.updatedAt)}
                   </p>
                 </button>
               );
             })}
           </div>
+
+          <div className="mt-4 rounded-[24px] border border-[color:rgba(255,255,255,0.08)] bg-[color:rgba(255,255,255,0.04)] px-4 py-4">
+            <p className="text-[11px] uppercase tracking-[0.18em] text-[color:rgba(255,240,232,0.48)]">
+              Tablero
+            </p>
+            <div className="mt-3 flex items-end justify-between gap-3">
+              <div>
+                <p className="text-3xl font-semibold tracking-[-0.05em] text-white">
+                  {pinnedCount}
+                </p>
+                <p className="mt-1 text-sm text-[color:rgba(255,240,232,0.62)]">
+                  piezas fijadas
+                </p>
+              </div>
+              <Link
+                className="rounded-full border border-[color:rgba(255,255,255,0.1)] bg-[color:rgba(255,255,255,0.06)] px-4 py-2 text-sm font-medium text-white transition hover:border-[color:rgba(255,255,255,0.16)]"
+                href="/dashboard"
+              >
+                Abrir
+              </Link>
+            </div>
+          </div>
+
+          <div className="mt-3 flex flex-wrap gap-2 px-1">
+            <button
+              className="rounded-full border border-[color:rgba(255,255,255,0.08)] px-3 py-2 text-xs text-[color:rgba(255,240,232,0.64)] transition hover:border-[color:rgba(255,255,255,0.14)] hover:text-white"
+              onClick={clearCurrentChat}
+              type="button"
+            >
+              Limpiar hilo
+            </button>
+            <button
+              className="rounded-full border border-[color:rgba(255,255,255,0.08)] px-3 py-2 text-xs text-[color:rgba(255,240,232,0.64)] transition hover:border-[color:rgba(255,255,255,0.14)] hover:text-white"
+              onClick={deleteCurrentChat}
+              type="button"
+            >
+              Eliminar
+            </button>
+            <button
+              className="rounded-full border border-[color:rgba(178,76,89,0.24)] px-3 py-2 text-xs text-[color:#ffb6a7] transition hover:border-[color:rgba(178,76,89,0.4)]"
+              onClick={clearAllChats}
+              type="button"
+            >
+              Limpiar todo
+            </button>
+          </div>
         </aside>
 
-        <section className="chat-shell-card order-1 flex min-h-[680px] flex-col overflow-hidden rounded-[34px] xl:order-2 xl:min-h-[calc(100dvh-124px)]">
-          <div className="border-b border-[color:var(--border)] px-6 py-5">
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="eyebrow">Copilot</span>
-                <span className="copilot-pill rounded-full px-3 py-1 text-xs">
-                  {llmReady ? "motor listo" : "grounded"}
-                </span>
-                <span className="copilot-pill rounded-full px-3 py-1 text-xs">
-                  {pinnedCount} piezas al canvas
-                </span>
-                <span className="copilot-pill rounded-full px-3 py-1 text-xs">
-                  {activeSession?.title ?? "Nuevo hilo"}
-                </span>
+        <section className="chat-main-shell order-1 flex min-h-[calc(100dvh-2rem)] flex-col rounded-[36px] xl:order-2">
+          <div className="border-b border-[color:rgba(67,57,47,0.08)] px-5 py-5 sm:px-6">
+            <div className="relative z-10 flex flex-col gap-4">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="eyebrow">Asistente</p>
+                  <h1
+                    className={[
+                      "mt-2 tracking-[-0.05em] text-[color:var(--text-strong)]",
+                      hasConversation
+                        ? "text-[clamp(1.8rem,3vw,2.6rem)] font-semibold"
+                        : "text-[clamp(2.5rem,5vw,4rem)] font-normal",
+                    ].join(" ")}
+                    style={{
+                      fontFamily: hasConversation ? "var(--font-heading), serif" : "var(--font-brand), cursive",
+                    }}
+                  >
+                    {headerTitle}
+                  </h1>
+                  <p className="mt-3 max-w-2xl text-sm leading-7 text-[color:var(--text-soft)]">
+                    {headerDetail}
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="chat-kicker-chip rounded-full px-3 py-1.5 text-[11px] uppercase tracking-[0.16em]">
+                    {heroSubtitle}
+                  </span>
+                  <span className="chat-kicker-chip rounded-full px-3 py-1.5 text-[11px] uppercase tracking-[0.16em]">
+                    {pinnedCount} piezas
+                  </span>
+                </div>
               </div>
 
-              <ChatThinkingCore
-                active={isSubmitting}
-                detail={heroDetail}
-                subtitle={heroSubtitle}
-                title={heroTitle}
+              <ChatSettingsPanel
+                allowHypotheses={allowHypotheses}
+                allowWebResearch={allowWebResearch}
+                backendHealth={backendHealth}
+                compact
+                externalContext={externalContext}
+                llmReady={llmReady}
+                notice={notice}
+                onAllowHypothesesChange={(value) => {
+                  llmToggleTouched.current = true;
+                  setAllowHypotheses(value);
+                  if (value && !useLlm) {
+                    setUseLlm(true);
+                  }
+                  if (!value) {
+                    setAllowWebResearch(false);
+                  }
+                }}
+                onAllowWebResearchChange={(value) => {
+                  llmToggleTouched.current = true;
+                  setAllowWebResearch(value);
+                  if (value && !useLlm) {
+                    setUseLlm(true);
+                  }
+                  if (value && !allowHypotheses) {
+                    setAllowHypotheses(true);
+                  }
+                }}
+                onExternalContextChange={setExternalContext}
+                onUseLlmChange={(value) => {
+                  llmToggleTouched.current = true;
+                  setUseLlm(value);
+                  if (!value) {
+                    setAllowHypotheses(false);
+                    setAllowWebResearch(false);
+                  }
+                }}
+                pinnedCount={pinnedCount}
+                useLlm={useLlm}
               />
             </div>
           </div>
 
-          <div className="glass-scroll flex-1 overflow-y-auto px-4 py-5 sm:px-6">
-            <div className="mx-auto max-w-3xl space-y-8">
-              {activeSession?.turns.length ? (
+          <div className="glass-scroll flex-1 overflow-y-auto px-4 py-6 sm:px-6">
+            <div className={hasConversation ? "mx-auto max-w-4xl space-y-6" : "mx-auto w-full max-w-5xl space-y-6 px-4 py-10"}>
+              {hasConversation ? (
                 activeSession.turns.map((turn, index) => {
                   const payload = turn.payload;
                   const evidenceHighlights = summarizeEvidence(payload);
@@ -654,13 +837,13 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
                   return (
                     <article key={turn.id}>
                       {turn.role === "user" ? (
-                        <div className="copilot-message-user ml-auto max-w-[78%] rounded-[28px] px-5 py-4">
+                        <div className="copilot-message-user ml-auto max-w-[76%] rounded-[28px] px-5 py-4">
                           <p className="text-sm leading-7 text-[color:#fff8f4]">
                             {turn.text}
                           </p>
                         </div>
                       ) : (
-                        <div className="copilot-message-assistant max-w-[94%] rounded-[30px] px-5 py-5 backdrop-blur">
+                        <div className="copilot-message-assistant max-w-[92%] rounded-[30px] px-5 py-5 backdrop-blur">
                           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                             <div>
                               <p className="text-[11px] uppercase tracking-[0.18em] text-[color:rgba(255,240,232,0.56)]">
@@ -676,7 +859,7 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
                                 <span
                                   className={`rounded-full border px-3 py-1 text-xs ${coverageChip(payload.confidence)}`}
                                 >
-                                  {payload.confidence}
+                                  {confidenceLabel(payload.confidence)}
                                 </span>
                                 <span className="copilot-soft-chip rounded-full px-3 py-1 text-xs">
                                   {modeLabel(payload.answer_mode)}
@@ -686,7 +869,7 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
                                   onClick={() => pinNote(payload, sourceQuestion)}
                                   type="button"
                                 >
-                                  Fijar insight
+                                  Fijar en tablero
                                 </button>
                               </div>
                             ) : null}
@@ -732,7 +915,7 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
                                   onClick={() => payload && pinArtifact(payload, artifactIndex, sourceQuestion)}
                                   type="button"
                                 >
-                                  Fijar widget
+                                  Fijar en tablero
                                 </button>
                               </div>
                               <ChatArtifactView artifact={artifact} />
@@ -750,7 +933,7 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
                             >
                               <p className="text-sm font-medium">
                                 {payload.answer_mode === "deterministic_fallback"
-                                  ? "Sigue grounded"
+                                  ? "Sigue en datos"
                                   : "Use con cautela"}
                               </p>
                               <div className="mt-2 space-y-2">
@@ -763,7 +946,7 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
 
                           {payload?.hypotheses.length ? (
                             <div className="mt-5 rounded-[20px] border border-[color:rgba(255,206,115,0.18)] bg-[color:rgba(255,206,115,0.08)] px-4 py-3 text-sm leading-6 text-[color:#ffd98f]">
-                              <p className="text-sm font-medium">Hipótesis tentativas</p>
+                              <p className="text-sm font-medium">Hipótesis</p>
                               <div className="mt-2 space-y-2">
                                 {asArray(payload.hypotheses).map((item) => (
                                   <p key={item}>{item}</p>
@@ -881,31 +1064,27 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
                   );
                 })
               ) : (
-                <div className="grid gap-4 lg:grid-cols-[0.95fr_1.05fr]">
-                  <div className="chat-shell-card rounded-[30px] p-6">
-                    <p className="eyebrow">Primer gesto</p>
+                <div className="flex min-h-[calc(100dvh-22rem)] items-center justify-center">
+                  <div className="chat-empty-stage flex w-full flex-col items-center text-center">
+                    <div className="chat-empty-emblem">
+                      <span className="copilot-brand-mark relative z-10 scale-[1.25]" />
+                    </div>
+                    <p
+                      className="mt-8 text-[clamp(2.8rem,6vw,4.6rem)] font-normal tracking-[-0.06em] text-[color:var(--chat-ink)]"
+                      style={{ fontFamily: "var(--font-brand), cursive" }}
+                    >
+                      {welcomeTitle}
+                    </p>
                     <h2
-                      className="mt-3 max-w-[15ch] text-[clamp(1.7rem,3vw,2.45rem)] font-semibold tracking-[-0.05em] text-[color:var(--text-strong)]"
+                      className="mt-2 max-w-[14ch] text-[clamp(2rem,4vw,3.2rem)] font-semibold tracking-[-0.05em] text-[color:var(--text-strong)]"
                       style={{ fontFamily: "var(--font-heading), serif" }}
                     >
-                      Abra una fecha, una caída o una comparación.
+                      ¿Qué quiere entender hoy?
                     </h2>
-                    <p className="mt-3 max-w-xl text-sm leading-7 text-[color:var(--text-soft)]">
-                      Una pregunta breve basta.
+                    <p className="mt-4 max-w-2xl text-sm leading-7 text-[color:var(--chat-soft-ink)]">
+                      Pregunte por una fecha, una caída, una franja horaria o una comparación entre periodos.
                     </p>
-                  </div>
-
-                  <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
-                    {EMPTY_STATE_CARDS.map((card) => (
-                      <div className="chat-shell-card rounded-[24px] p-4" key={card.title}>
-                        <p className="text-sm font-medium text-[color:var(--text-strong)]">
-                          {card.title}
-                        </p>
-                        <p className="mt-2 text-sm leading-6 text-[color:var(--text-soft)]">
-                          {card.body}
-                        </p>
-                      </div>
-                    ))}
+                    <div className="mt-8 w-full">{renderComposer({ centered: true })}</div>
                   </div>
                 </div>
               )}
@@ -918,7 +1097,7 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
                     detail={pendingResponseDetail(useLlm && llmReady, allowHypotheses, allowWebResearch)}
                     label="Respuesta en curso"
                     subtitle={heroSubtitle}
-                    title="Pensando"
+                    title="Analizando"
                   />
                 </div>
               ) : null}
@@ -939,93 +1118,12 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
             </div>
           </div>
 
-          <div className="border-t border-[color:var(--border)] px-4 py-4 sm:px-6">
-            <div className="mx-auto max-w-3xl">
-              <div className="flex flex-wrap gap-2">
-                {followUps.slice(0, 3).map((prompt) => (
-                  <button
-                    className="chat-kicker-chip rounded-full px-3 py-2 text-xs transition hover:text-[color:var(--text-strong)]"
-                    key={prompt}
-                    onClick={() => setDraft(prompt)}
-                    type="button"
-                  >
-                    {prompt}
-                  </button>
-                ))}
-              </div>
-
-              <div className="chat-composer-shell mt-3 rounded-[28px] px-4 py-3">
-                <div className="mb-3 h-px w-full bg-[linear-gradient(90deg,transparent,rgba(255,143,107,0.92),rgba(234,77,161,0.86),rgba(143,103,255,0.78),transparent)]" />
-                <textarea
-                  className="glass-scroll min-h-28 w-full resize-none bg-transparent text-sm leading-7 text-[color:var(--text-strong)] outline-none placeholder:text-[color:var(--text-dim)]"
-                  onChange={(event) => setDraft(event.target.value)}
-                  placeholder="Pregunte por una fecha, una caída o una tendencia."
-                  value={draft}
-                />
-                <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-xs text-[color:var(--text-dim)]">
-                    {llmReady ? "Grounded con modos opcionales." : "Sesión en modo grounded."}
-                  </p>
-                  <div className="flex items-center gap-3">
-                    {isSubmitting ? (
-                      <span className="copilot-pill rounded-full px-3 py-2 text-xs uppercase tracking-[0.18em]">
-                        señal activa
-                      </span>
-                    ) : null}
-                    <button
-                      className="copilot-gradient-button rounded-full px-4 py-3 text-sm font-medium text-[color:#fff7f3] transition hover:opacity-92 disabled:cursor-not-allowed disabled:opacity-60"
-                      disabled={isSubmitting || !draft.trim() || !activeSession}
-                      onClick={() => void sendQuestion(draft)}
-                      type="button"
-                    >
-                      {isSubmitting ? "Pensando..." : "Enviar"}
-                    </button>
-                  </div>
-                </div>
-              </div>
+          {hasConversation ? (
+            <div className="border-t border-[color:rgba(67,57,47,0.08)] px-4 py-4 sm:px-6">
+              {renderComposer()}
             </div>
-          </div>
+          ) : null}
         </section>
-
-        <ChatSettingsPanel
-          allowHypotheses={allowHypotheses}
-          allowWebResearch={allowWebResearch}
-          backendHealth={backendHealth}
-          externalContext={externalContext}
-          llmReady={llmReady}
-          notice={notice}
-          onAllowHypothesesChange={(value) => {
-            llmToggleTouched.current = true;
-            setAllowHypotheses(value);
-            if (value && !useLlm) {
-              setUseLlm(true);
-            }
-            if (!value) {
-              setAllowWebResearch(false);
-            }
-          }}
-          onAllowWebResearchChange={(value) => {
-            llmToggleTouched.current = true;
-            setAllowWebResearch(value);
-            if (value && !useLlm) {
-              setUseLlm(true);
-            }
-            if (value && !allowHypotheses) {
-              setAllowHypotheses(true);
-            }
-          }}
-          onExternalContextChange={setExternalContext}
-          onUseLlmChange={(value) => {
-            llmToggleTouched.current = true;
-            setUseLlm(value);
-            if (!value) {
-              setAllowHypotheses(false);
-              setAllowWebResearch(false);
-            }
-          }}
-          pinnedCount={pinnedCount}
-          useLlm={useLlm}
-        />
       </section>
     </main>
   );

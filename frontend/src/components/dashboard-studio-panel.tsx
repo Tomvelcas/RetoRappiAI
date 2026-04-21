@@ -125,7 +125,7 @@ export function DashboardStudioPanel({
             onClick={onReset}
             type="button"
           >
-            Reset
+            Restablecer
           </button>
           <button
             className="rounded-[12px] border border-[color:var(--border)] bg-[color:rgba(255,255,255,0.04)] px-3 py-2 text-xs text-[color:var(--text-soft)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-strong)]"
@@ -209,7 +209,7 @@ export function DashboardStudioPanel({
               <p className="text-xs font-medium text-[color:var(--text-strong)]">{item.title}</p>
               {item.pinned ? (
                 <span className="rounded-[8px] bg-[color:rgba(255,122,31,0.12)] px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-[color:#ffd4bf]">
-                  pin
+                  fijo
                 </span>
               ) : null}
             </div>

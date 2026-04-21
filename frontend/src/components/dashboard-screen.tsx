@@ -4,13 +4,11 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import type {
-  MetricsCoverageExtremesResponse,
   MetricsDayBriefingResponse,
   MetricsOverviewResponse,
   MetricsQueryOptions,
 } from "@/lib/api";
 import {
-  getCoverageExtremes,
   getDayBriefing,
   getMetricsOverview,
 } from "@/lib/api";
@@ -24,7 +22,7 @@ import {
   removePinnedWidget,
   saveDashboardLayouts,
 } from "@/lib/dashboard-store";
-import { formatLongDate, formatShortDate, mapKpiToUi } from "@/lib/format";
+import { confidenceLabel, formatLongDate, formatShortDate, mapKpiToUi } from "@/lib/format";
 
 import { DashboardCanvas, type DashboardCanvasRenderMeta } from "@/components/dashboard-canvas";
 import { DashboardStaggeredMenu } from "@/components/dashboard-staggered-menu";
@@ -44,7 +42,6 @@ import {
 } from "@/components/dashboard-widgets";
 type DashboardState = {
   overview: MetricsOverviewResponse | null;
-  coverage: MetricsCoverageExtremesResponse | null;
   briefings: Record<string, MetricsDayBriefingResponse>;
   selectedDate: string | null;
   loading: boolean;
@@ -72,34 +69,34 @@ const builtInWidgets: BuiltInWidget[] = [
   {
     accent: "cyan",
     defaultLayout: { x: 0, y: 0, w: 8, h: 5, visible: true },
-    description: "Curva principal con lectura diaria, escala visible y selección por fecha.",
+    description: "Serie diaria con lectura del rango y selección por fecha.",
     id: "signal-timeline",
     minH: 5,
     minW: 5,
-    title: "Señal principal",
+    title: "Serie diaria",
   },
   {
     accent: "amber",
     defaultLayout: { x: 8, y: 0, w: 4, h: 5, visible: true },
-    description: "Resumen operativo del día seleccionado con highlights y cautelas.",
+    description: "Resumen puntual del día seleccionado con horas clave y respaldo.",
     id: "day-spotlight",
     minH: 4,
     minW: 3,
-    title: "Día abierto",
+    title: "Fecha abierta",
   },
   {
     accent: "default",
     defaultLayout: { x: 0, y: 5, w: 4, h: 4, visible: true },
-    description: "Perfil horario para entender picos y valles durante el día.",
+    description: "Perfil horario para detectar horas pico y horas bajas.",
     id: "intraday-rhythm",
     minH: 4,
     minW: 3,
-    title: "Ritmo intradía",
+    title: "Patrón horario",
   },
   {
     accent: "rose",
     defaultLayout: { x: 4, y: 5, w: 4, h: 4, visible: true },
-    description: "Momentos que merecen inspección por magnitud y confianza.",
+    description: "Eventos fuera de patrón priorizados por magnitud y confianza.",
     id: "anomaly-pulse",
     minH: 4,
     minW: 3,
@@ -108,17 +105,16 @@ const builtInWidgets: BuiltInWidget[] = [
   {
     accent: "amber",
     defaultLayout: { x: 8, y: 5, w: 4, h: 4, visible: true },
-    description: "Indicadores de cobertura y fragilidad del rango activo.",
+    description: "Cobertura, vacíos y soporte del rango activo.",
     id: "quality-lens",
     minH: 4,
     minW: 3,
-    title: "Calidad del dato",
+    title: "Calidad",
   },
 ];
 
 const initialState: DashboardState = {
   overview: null,
-  coverage: null,
   briefings: {},
   selectedDate: null,
   loading: true,
@@ -227,17 +223,17 @@ const dashboardMenuItems = [
     shortLabel: "01",
   },
   {
-    ariaLabel: "Ir al canvas analítico",
-    description: "Workspace analítico, widgets modulares y foco en el dato.",
+    ariaLabel: "Ir al tablero analítico",
+    description: "Tablero operativo con foco en la señal y la cobertura.",
     href: "/dashboard",
-    label: "Canvas",
+    label: "Tablero",
     shortLabel: "02",
   },
   {
-    ariaLabel: "Abrir el copilot",
-    description: "Asistente conectado al histórico para abrir comparaciones y explicaciones.",
+    ariaLabel: "Abrir el asistente",
+    description: "Asistente conectado al histórico para comparar, explicar y fijar hallazgos.",
     href: "/chat",
-    label: "Copilot",
+    label: "Asistente",
     shortLabel: "03",
   },
 ] as const;
@@ -281,7 +277,6 @@ export function DashboardScreen() {
 
   useEffect(() => {
     const overviewController = new AbortController();
-    const coverageController = new AbortController();
     const briefingController = new AbortController();
     const isFirstLoad = state.loading && !state.overview;
 
@@ -294,18 +289,11 @@ export function DashboardScreen() {
           error: null,
         }));
 
-        const [overview, coverage] = await Promise.all([
-          getMetricsOverview({
-            ...appliedFilters,
-            anomalyLimit: 8,
-            signal: overviewController.signal,
-          }),
-          getCoverageExtremes({
-            ...appliedFilters,
-            limit: 4,
-            signal: coverageController.signal,
-          }),
-        ]);
+        const overview = await getMetricsOverview({
+          ...appliedFilters,
+          anomalyLimit: 8,
+          signal: overviewController.signal,
+        });
 
         const selectedDate = resolveSelectedDate(overview, state.selectedDate);
         const nextBriefings = { ...state.briefings };
@@ -328,7 +316,6 @@ export function DashboardScreen() {
 
         setState({
           briefings: nextBriefings,
-          coverage,
           error: null,
           loading: false,
           overview,
@@ -338,7 +325,6 @@ export function DashboardScreen() {
       } catch (error) {
         if (
           overviewController.signal.aborted ||
-          coverageController.signal.aborted ||
           briefingController.signal.aborted
         ) {
           return;
@@ -357,7 +343,6 @@ export function DashboardScreen() {
 
     return () => {
       overviewController.abort();
-      coverageController.abort();
       briefingController.abort();
     };
   }, [appliedFilters]);
@@ -452,7 +437,9 @@ export function DashboardScreen() {
     }
 
     if (preset === "fragile") {
-      const weakestDay = state.coverage?.lowest_coverage_days[0]?.date;
+      const weakestDay = [...state.overview.trend].sort(
+        (left, right) => left.coverage_ratio - right.coverage_ratio,
+      )[0]?.date;
       if (weakestDay) {
         nextStart = weakestDay;
         nextEnd = weakestDay;
@@ -501,11 +488,11 @@ export function DashboardScreen() {
     );
   }
 
-  if (!state.overview || !state.coverage || !activeBriefing) {
+  if (!state.overview || !activeBriefing) {
     return (
       <main className="dashboard-page-shell dashboard-pro-shell min-h-dvh px-3 py-3 sm:px-4 sm:py-4">
         <section className="panel min-h-[calc(100dvh-1.5rem)] rounded-[40px] p-8 sm:min-h-[calc(100dvh-2rem)] sm:p-10">
-          <p className="eyebrow">Canvas no disponible</p>
+          <p className="eyebrow">Tablero no disponible</p>
           <h1
             className="mt-4 text-4xl font-semibold tracking-[-0.05em] text-[color:var(--text-strong)] sm:text-5xl"
             style={{ fontFamily: "var(--font-heading), serif" }}
@@ -531,7 +518,7 @@ export function DashboardScreen() {
       visible: layouts[widget.id]?.visible ?? widget.defaultLayout.visible,
     })),
     ...pinnedWidgets.map((widget) => ({
-      description: "Pieza nacida desde el copiloto y fijada al canvas para reutilizarla.",
+      description: "Pieza fijada desde el asistente para releerla en el tablero.",
       id: widget.id,
       pinned: true,
       title: widget.title,
@@ -564,7 +551,7 @@ export function DashboardScreen() {
   const rangeLabel = `${formatLongDate(overview.time_window.effective_start)} a ${formatLongDate(
     overview.time_window.effective_end,
   )}`;
-  const copilotoQuestion = `¿Qué pasó el ${activeSelectedDate}?`;
+  const assistantQuestion = `¿Qué pasó el ${activeSelectedDate}?`;
   const overviewKpis = overview.kpis.map((kpi) => ({
     ...mapKpiToUi(kpi),
     key: kpi.key,
@@ -622,49 +609,31 @@ export function DashboardScreen() {
         </div>
 
         <section className="dashboard-command-bar rounded-[34px] px-4 py-4 sm:px-5 sm:py-4">
-          <div className="grid gap-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="copilot-pill rounded-full px-3 py-2 text-xs">
-                  {rangeLabel}
-                </span>
-                {state.refreshing ? (
-                  <span className="rounded-full border border-[color:rgba(255,122,31,0.2)] bg-[color:rgba(255,122,31,0.12)] px-3 py-2 text-xs text-[color:#ffd5be]">
-                    actualizando
-                  </span>
-                ) : null}
-              </div>
-
-              <div className="flex flex-wrap items-center justify-end gap-2">
-                <button
-                  className="copilot-outline-button rounded-full px-4 py-2 text-sm text-[color:var(--text-soft)] transition hover:text-[color:var(--text-strong)]"
-                  onClick={() => setPanelCollapsed((current) => !current)}
-                  type="button"
-                >
-                  {panelCollapsed ? "Filtros" : "Cerrar panel"}
-                </button>
-                <Link
-                  className="copilot-gradient-button rounded-full px-4 py-2 text-sm font-medium text-[color:#fff7f3] transition"
-                  href={`/chat?question=${encodeURIComponent(copilotoQuestion)}`}
-                >
-                  Abrir copilot
-                </Link>
-              </div>
-            </div>
-
-            <div className="grid gap-3">
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_360px]">
+            <div className="grid gap-4">
               <div>
-                <div>
-                  <p className="eyebrow">1. Snapshot</p>
-                  <h1
-                    className="mt-3 max-w-[12ch] text-[clamp(2.2rem,5vw,4.7rem)] font-semibold tracking-[-0.08em] text-[color:var(--text-strong)]"
-                    style={{ fontFamily: "var(--font-heading), serif" }}
-                  >
-                    Decisiones rápidas. Señal primero.
-                  </h1>
-                  <p className="mt-2 text-sm text-[color:var(--text-soft)]">
-                    {formatShortDate(activeSelectedDate)} · {visibleWidgetCount} módulos visibles
-                  </p>
+                <p className="eyebrow">Tablero</p>
+                <h1
+                  className="mt-2 text-[clamp(2.5rem,6vw,5rem)] font-normal tracking-[-0.05em] text-[color:var(--text-strong)]"
+                  style={{ fontFamily: "var(--font-brand), cursive" }}
+                >
+                  OrbbiBoard
+                </h1>
+                <p className="mt-2 text-sm text-[color:var(--text-soft)]">
+                  {rangeLabel}
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <span className="copilot-pill rounded-full px-3 py-1.5 text-[11px] uppercase tracking-[0.16em]">
+                    {formatShortDate(activeSelectedDate)}
+                  </span>
+                  <span className="copilot-pill rounded-full px-3 py-1.5 text-[11px] uppercase tracking-[0.16em]">
+                    {visibleWidgetCount} módulos
+                  </span>
+                  {state.refreshing ? (
+                    <span className="copilot-pill rounded-full px-3 py-1.5 text-[11px] uppercase tracking-[0.16em]">
+                      actualizando
+                    </span>
+                  ) : null}
                 </div>
               </div>
 
@@ -678,6 +647,47 @@ export function DashboardScreen() {
                     value={kpi.value}
                   />
                 ))}
+              </div>
+            </div>
+
+            <div className="rounded-[28px] border border-[color:rgba(255,122,31,0.18)] bg-[linear-gradient(180deg,rgba(255,255,255,0.08),transparent_18%),linear-gradient(135deg,rgba(255,122,31,0.16),rgba(255,92,0,0.08)_36%,rgba(13,4,2,0.92)_100%)] p-5 shadow-[0_24px_56px_rgba(0,0,0,0.22),0_0_24px_rgba(255,96,18,0.08)]">
+              <p className="eyebrow text-[color:rgba(255,236,224,0.6)]">Fecha abierta</p>
+              <p
+                className="mt-3 text-[1.55rem] font-semibold tracking-[-0.05em] text-[color:var(--text-strong)]"
+                style={{ fontFamily: "var(--font-heading), serif" }}
+              >
+                {formatLongDate(activeSelectedDate)}
+              </p>
+              <p className="mt-3 text-sm leading-7 text-[color:var(--text-soft)]">
+                {briefing.summary}
+              </p>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                <span className="copilot-pill rounded-full px-3 py-1.5 text-[11px] uppercase tracking-[0.16em]">
+                  confianza {confidenceLabel(briefing.confidence)}
+                </span>
+                <span className="copilot-pill rounded-full px-3 py-1.5 text-[11px] uppercase tracking-[0.16em]">
+                  pico {briefing.strongest_hour.label}
+                </span>
+                <span className="copilot-pill rounded-full px-3 py-1.5 text-[11px] uppercase tracking-[0.16em]">
+                  baja {briefing.weakest_hour.label}
+                </span>
+              </div>
+
+              <div className="mt-5 flex flex-wrap gap-2">
+                <button
+                  className="copilot-outline-button rounded-full px-4 py-2 text-sm text-[color:var(--text-soft)] transition hover:text-[color:var(--text-strong)]"
+                  onClick={() => setPanelCollapsed((current) => !current)}
+                  type="button"
+                >
+                  {panelCollapsed ? "Filtros" : "Cerrar panel"}
+                </button>
+                <Link
+                  className="copilot-gradient-button rounded-full px-4 py-2 text-sm font-medium text-[color:#fff7f3] transition"
+                  href={`/chat?question=${encodeURIComponent(assistantQuestion)}`}
+                >
+                  Abrir asistente
+                </Link>
               </div>
             </div>
           </div>
