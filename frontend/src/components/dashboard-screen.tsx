@@ -24,9 +24,10 @@ import {
   removePinnedWidget,
   saveDashboardLayouts,
 } from "@/lib/dashboard-store";
-import { coverageChip, formatLongDate, formatShortDate } from "@/lib/format";
+import { formatLongDate, formatShortDate, mapKpiToUi } from "@/lib/format";
 
-import { DashboardCanvas } from "@/components/dashboard-canvas";
+import { DashboardCanvas, type DashboardCanvasRenderMeta } from "@/components/dashboard-canvas";
+import { DashboardStaggeredMenu } from "@/components/dashboard-staggered-menu";
 import {
   DashboardStudioPanel,
   type DashboardFilterPreset,
@@ -34,15 +35,13 @@ import {
 } from "@/components/dashboard-studio-panel";
 import {
   AnomalyPulseWidget,
-  CoverageExtremesWidget,
   DaySpotlightWidget,
   IntradayRhythmWidget,
+  MetricTile,
   PinnedWidget,
   QualityLensWidget,
   SignalTimelineWidget,
 } from "@/components/dashboard-widgets";
-import { InfoTooltip } from "@/components/ui/info-tooltip";
-
 type DashboardState = {
   overview: MetricsOverviewResponse | null;
   coverage: MetricsCoverageExtremesResponse | null;
@@ -72,25 +71,25 @@ type BuiltInWidget = {
 const builtInWidgets: BuiltInWidget[] = [
   {
     accent: "cyan",
-    defaultLayout: { x: 0, y: 0, w: 7, h: 6, visible: true },
+    defaultLayout: { x: 0, y: 0, w: 8, h: 5, visible: true },
     description: "Curva principal con lectura diaria, escala visible y selección por fecha.",
     id: "signal-timeline",
-    minH: 4,
+    minH: 5,
     minW: 5,
     title: "Señal principal",
   },
   {
     accent: "amber",
-    defaultLayout: { x: 7, y: 0, w: 5, h: 5, visible: true },
+    defaultLayout: { x: 8, y: 0, w: 4, h: 5, visible: true },
     description: "Resumen operativo del día seleccionado con highlights y cautelas.",
     id: "day-spotlight",
     minH: 4,
-    minW: 4,
+    minW: 3,
     title: "Día abierto",
   },
   {
     accent: "default",
-    defaultLayout: { x: 4, y: 6, w: 3, h: 4, visible: true },
+    defaultLayout: { x: 0, y: 5, w: 4, h: 4, visible: true },
     description: "Perfil horario para entender picos y valles durante el día.",
     id: "intraday-rhythm",
     minH: 4,
@@ -99,30 +98,21 @@ const builtInWidgets: BuiltInWidget[] = [
   },
   {
     accent: "rose",
-    defaultLayout: { x: 7, y: 5, w: 5, h: 5, visible: true },
+    defaultLayout: { x: 4, y: 5, w: 4, h: 4, visible: true },
     description: "Momentos que merecen inspección por magnitud y confianza.",
     id: "anomaly-pulse",
     minH: 4,
-    minW: 4,
+    minW: 3,
     title: "Anomalías",
   },
   {
     accent: "amber",
-    defaultLayout: { x: 0, y: 6, w: 4, h: 4, visible: true },
+    defaultLayout: { x: 8, y: 5, w: 4, h: 4, visible: true },
     description: "Indicadores de cobertura y fragilidad del rango activo.",
     id: "quality-lens",
-    minH: 3,
+    minH: 4,
     minW: 3,
     title: "Calidad del dato",
-  },
-  {
-    accent: "cyan",
-    defaultLayout: { x: 0, y: 10, w: 12, h: 5, visible: true },
-    description: "Días más frágiles y mejor cubiertos para abrir el análisis rápido.",
-    id: "coverage-extremes",
-    minH: 4,
-    minW: 5,
-    title: "Extremos de cobertura",
   },
 ];
 
@@ -160,7 +150,7 @@ function buildPinnedDefaultLayout(index: number): DashboardWidgetLayout {
 
   return {
     x: column === 0 ? 0 : 6,
-    y: 16 + row * 5,
+    y: 9 + row * 5,
     w: 6,
     h: 5,
     visible: true,
@@ -208,7 +198,49 @@ function removePinnedDashboardWidget(widgetId: string) {
   removePinnedWidget(widgetId);
 }
 
-const LOADING_KPI_SKELETON_IDS = ["loading-kpi-1", "loading-kpi-2", "loading-kpi-3", "loading-kpi-4"];
+function resolveKpiTone(
+  key: string,
+): "default" | "cyan" | "amber" | "rose" {
+  if (key === "coverage_ratio") {
+    return "cyan";
+  }
+
+  if (key === "anomaly_count") {
+    return "rose";
+  }
+
+  if (key === "strongest_hour" || key === "weakest_hour") {
+    return "amber";
+  }
+
+  return "default";
+}
+
+const LOADING_CANVAS_SKELETON_IDS = ["loading-canvas-1", "loading-canvas-2", "loading-canvas-3"];
+
+const dashboardMenuItems = [
+  {
+    ariaLabel: "Ir al inicio",
+    description: "Portada inmersiva y acceso de entrada al producto.",
+    href: "/",
+    label: "Inicio",
+    shortLabel: "01",
+  },
+  {
+    ariaLabel: "Ir al canvas analítico",
+    description: "Workspace analítico, widgets modulares y foco en el dato.",
+    href: "/dashboard",
+    label: "Canvas",
+    shortLabel: "02",
+  },
+  {
+    ariaLabel: "Abrir el copilot",
+    description: "Asistente conectado al histórico para abrir comparaciones y explicaciones.",
+    href: "/chat",
+    label: "Copilot",
+    shortLabel: "03",
+  },
+] as const;
 
 export function DashboardScreen() {
   const [state, setState] = useState<DashboardState>(initialState);
@@ -445,15 +477,25 @@ export function DashboardScreen() {
 
   if (state.loading && !state.overview) {
     return (
-      <main className="mx-auto max-w-[1500px] px-4 pb-20 pt-6 sm:px-6 lg:px-8">
-        <div className="grid gap-4">
-          <div className="panel h-[180px] animate-pulse rounded-[34px]" />
-          <div className="grid gap-4 md:grid-cols-4">
-            {LOADING_KPI_SKELETON_IDS.map((key) => (
-              <div className="panel h-[138px] animate-pulse rounded-[28px]" key={key} />
-            ))}
+      <main className="dashboard-page-shell dashboard-pro-shell min-h-dvh px-3 py-3 sm:px-4 sm:py-4">
+        <div className="relative z-10 flex min-h-[calc(100dvh-1.5rem)] flex-col gap-3 sm:min-h-[calc(100dvh-2rem)]">
+          <div className="flex items-center justify-between gap-3">
+            <div className="panel h-12 w-[136px] animate-pulse rounded-full" />
+            <div className="flex gap-2">
+              <div className="panel hidden h-12 w-[180px] animate-pulse rounded-full sm:block" />
+              <div className="panel h-12 w-[132px] animate-pulse rounded-full" />
+            </div>
           </div>
-          <div className="panel h-[920px] animate-pulse rounded-[34px]" />
+          <div className="panel min-h-[calc(100dvh-5rem)] flex-1 animate-pulse rounded-[40px]">
+            <div className="grid h-full gap-3 p-3 lg:grid-cols-12">
+              {LOADING_CANVAS_SKELETON_IDS.map((key) => (
+                <div
+                  className="rounded-[32px] border border-[color:var(--border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))]"
+                  key={key}
+                />
+              ))}
+            </div>
+          </div>
         </div>
       </main>
     );
@@ -461,14 +503,14 @@ export function DashboardScreen() {
 
   if (!state.overview || !state.coverage || !activeBriefing) {
     return (
-      <main className="mx-auto max-w-[1500px] px-4 pb-20 pt-6 sm:px-6 lg:px-8">
-        <section className="panel rounded-[34px] p-8">
-          <p className="eyebrow">Dashboard no disponible</p>
+      <main className="dashboard-page-shell dashboard-pro-shell min-h-dvh px-3 py-3 sm:px-4 sm:py-4">
+        <section className="panel min-h-[calc(100dvh-1.5rem)] rounded-[40px] p-8 sm:min-h-[calc(100dvh-2rem)] sm:p-10">
+          <p className="eyebrow">Canvas no disponible</p>
           <h1
             className="mt-4 text-4xl font-semibold tracking-[-0.05em] text-[color:var(--text-strong)] sm:text-5xl"
             style={{ fontFamily: "var(--font-heading), serif" }}
           >
-            No pudimos montar el canvas.
+            No pudimos montar el workspace.
           </h1>
           <p className="mt-4 max-w-xl text-sm leading-7 text-[color:var(--text-soft)]">
             {state.error ?? "Levante el backend y recargue la página para reconstruir el tablero."}
@@ -479,7 +521,6 @@ export function DashboardScreen() {
   }
 
   const overview = state.overview;
-  const coverage = state.coverage;
   const briefing = activeBriefing.briefing;
   const activeSelectedDate = state.selectedDate ?? activeBriefing.briefing.target_date;
   const studioItems: DashboardStudioItem[] = [
@@ -524,8 +565,13 @@ export function DashboardScreen() {
     overview.time_window.effective_end,
   )}`;
   const copilotoQuestion = `¿Qué pasó el ${activeSelectedDate}?`;
+  const overviewKpis = overview.kpis.map((kpi) => ({
+    ...mapKpiToUi(kpi),
+    key: kpi.key,
+    tone: resolveKpiTone(kpi.key),
+  }));
 
-  function renderWidget(widgetId: string) {
+  function renderWidget(widgetId: string, meta: DashboardCanvasRenderMeta) {
     if (widgetId === "signal-timeline") {
       return (
         <SignalTimelineWidget
@@ -533,34 +579,25 @@ export function DashboardScreen() {
           onSelectDate={handleSelectDate}
           points={overview.trend}
           selectedDate={activeSelectedDate}
+          size={meta.size}
         />
       );
     }
 
     if (widgetId === "day-spotlight") {
-      return <DaySpotlightWidget briefing={briefing} />;
+      return <DaySpotlightWidget briefing={briefing} size={meta.size} />;
     }
 
     if (widgetId === "intraday-rhythm") {
-      return <IntradayRhythmWidget profile={overview.intraday_profile} />;
+      return <IntradayRhythmWidget profile={overview.intraday_profile} size={meta.size} />;
     }
 
     if (widgetId === "anomaly-pulse") {
-      return <AnomalyPulseWidget anomalies={overview.top_anomalies} />;
+      return <AnomalyPulseWidget anomalies={overview.top_anomalies} size={meta.size} />;
     }
 
     if (widgetId === "quality-lens") {
-      return <QualityLensWidget overview={overview} />;
-    }
-
-    if (widgetId === "coverage-extremes") {
-      return (
-        <CoverageExtremesWidget
-          coverage={coverage}
-          onSelectDate={handleSelectDate}
-          selectedDate={activeSelectedDate}
-        />
-      );
+      return <QualityLensWidget overview={overview} size={meta.size} />;
     }
 
     const pinnedWidget = pinnedWidgets.find((widget) => widget.id === widgetId);
@@ -571,190 +608,127 @@ export function DashboardScreen() {
     return (
       <PinnedWidget
         onRemove={() => removePinnedDashboardWidget(widgetId)}
+        size={meta.size}
         widget={pinnedWidget}
       />
     );
   }
 
   return (
-    <main className="mx-auto max-w-[1500px] px-4 pb-20 pt-6 sm:px-6 lg:px-8">
-      <section className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-        <div className="panel rounded-[34px] px-6 py-6 sm:px-7">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="eyebrow">Disponibilidad histórica</span>
-            <span className="rounded-full border border-[color:rgba(21,125,120,0.2)] bg-[color:rgba(21,125,120,0.08)] px-3 py-1 text-xs text-[color:var(--signal-cyan)]">
-              {visibleWidgetCount} piezas activas
-            </span>
-            {state.refreshing ? (
-              <span className="rounded-full border border-[color:rgba(176,108,31,0.18)] bg-[color:rgba(176,108,31,0.08)] px-3 py-1 text-xs text-[color:var(--signal-amber)]">
-                actualizando
-              </span>
-            ) : null}
-          </div>
+    <main className="dashboard-page-shell dashboard-pro-shell min-h-dvh px-3 py-3 sm:px-4 sm:py-4">
+      <div className="relative z-10 mx-auto flex min-h-[calc(100dvh-1.5rem)] max-w-[1640px] flex-col gap-2.5 sm:min-h-[calc(100dvh-2rem)]">
+        <div className="pointer-events-auto fixed left-4 top-4 z-40 sm:left-6 sm:top-6">
+          <DashboardStaggeredMenu items={dashboardMenuItems} />
+        </div>
 
-          <div className="mt-4 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-            <div>
-              <h1
-                className="max-w-4xl text-4xl font-semibold tracking-[-0.06em] text-[color:var(--text-strong)] sm:text-5xl"
-                style={{ fontFamily: "var(--font-heading), serif" }}
-              >
-                Un canvas visual que puede mover, estirar y rearmar sin perder claridad.
-              </h1>
-              <p className="mt-4 max-w-3xl text-sm leading-7 text-[color:var(--text-soft)] sm:text-base sm:leading-8">
-                Cada card se comporta como una pieza viva del tablero. Puede arrastrarla desde
-                cualquier zona del módulo, redimensionarla desde la pestaña inferior derecha y
-                reordenar el conjunto sin romper la composición.
-              </p>
-            </div>
-
-            <div className="rounded-[28px] border border-[color:var(--border)] bg-[color:rgba(255,255,255,0.78)] p-5">
-              <div className="flex items-center gap-2">
-                <p className="eyebrow">Lectura rápida</p>
-                <InfoTooltip content="Este resumen siempre refleja el rango activo. Use el panel del canvas para cambiarlo sin ocupar media pantalla." />
+        <section className="dashboard-command-bar rounded-[34px] px-4 py-4 sm:px-5 sm:py-4">
+          <div className="grid gap-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="copilot-pill rounded-full px-3 py-2 text-xs">
+                  {rangeLabel}
+                </span>
+                {state.refreshing ? (
+                  <span className="rounded-full border border-[color:rgba(255,122,31,0.2)] bg-[color:rgba(255,122,31,0.12)] px-3 py-2 text-xs text-[color:#ffd5be]">
+                    actualizando
+                  </span>
+                ) : null}
               </div>
-              <p className="mt-3 text-lg font-semibold text-[color:var(--text-strong)]">
-                {rangeLabel}
-              </p>
-              <p className="mt-2 text-sm leading-7 text-[color:var(--text-soft)]">
-                Día activo: {formatShortDate(activeSelectedDate)}.
-              </p>
-              <div className="mt-4 flex flex-wrap gap-2">
+
+              <div className="flex flex-wrap items-center justify-end gap-2">
                 <button
-                  className="rounded-full bg-[color:var(--text-strong)] px-4 py-2 text-sm font-medium text-[color:var(--surface-strong)] transition hover:opacity-92"
+                  className="copilot-outline-button rounded-full px-4 py-2 text-sm text-[color:var(--text-soft)] transition hover:text-[color:var(--text-strong)]"
                   onClick={() => setPanelCollapsed((current) => !current)}
                   type="button"
                 >
-                  {panelCollapsed ? "Abrir panel" : "Cerrar panel"}
+                  {panelCollapsed ? "Filtros" : "Cerrar panel"}
                 </button>
                 <Link
-                  className="rounded-full border border-[color:var(--border)] px-4 py-2 text-sm text-[color:var(--text-soft)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-strong)]"
+                  className="copilot-gradient-button rounded-full px-4 py-2 text-sm font-medium text-[color:#fff7f3] transition"
                   href={`/chat?question=${encodeURIComponent(copilotoQuestion)}`}
                 >
-                  Abrir en copiloto
+                  Abrir copilot
                 </Link>
               </div>
             </div>
-          </div>
-        </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
-          <div className="panel rounded-[30px] px-5 py-5">
-            <p className="eyebrow">Día seleccionado</p>
-            <p
-              className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-[color:var(--text-strong)]"
-              style={{ fontFamily: "var(--font-heading), serif" }}
-            >
-              {formatLongDate(activeSelectedDate)}
-            </p>
-            <p className="mt-3 text-sm leading-7 text-[color:var(--text-soft)]">
-              {briefing.headline}
-            </p>
-          </div>
+            <div className="grid gap-3">
+              <div>
+                <div>
+                  <p className="eyebrow">1. Snapshot</p>
+                  <h1
+                    className="mt-3 max-w-[12ch] text-[clamp(2.2rem,5vw,4.7rem)] font-semibold tracking-[-0.08em] text-[color:var(--text-strong)]"
+                    style={{ fontFamily: "var(--font-heading), serif" }}
+                  >
+                    Decisiones rápidas. Señal primero.
+                  </h1>
+                  <p className="mt-2 text-sm text-[color:var(--text-soft)]">
+                    {formatShortDate(activeSelectedDate)} · {visibleWidgetCount} módulos visibles
+                  </p>
+                </div>
+              </div>
 
-          <div className="panel rounded-[30px] px-5 py-5">
-            <p className="eyebrow">Estado del tablero</p>
-            <p className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-[color:var(--text-strong)]">
-              {pinnedWidgets.length}
-            </p>
-            <p className="mt-2 text-sm leading-7 text-[color:var(--text-soft)]">
-              widgets fijados desde el copiloto. Puede usarlos como piezas nuevas dentro del
-              canvas.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <section className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {overview.kpis.slice(0, 4).map((kpi) => (
-          <article className="panel rounded-[28px] px-5 py-5" key={kpi.key}>
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-dim)]">
-                {kpi.label}
-              </p>
-              {kpi.confidence ? (
-                <span className={`rounded-full border px-3 py-1 text-xs ${coverageChip(kpi.confidence)}`}>
-                  {kpi.confidence}
-                </span>
-              ) : null}
+              <div className="grid gap-3 lg:grid-cols-5">
+                {overviewKpis.map((kpi) => (
+                  <MetricTile
+                    caption={kpi.caption}
+                    key={kpi.key}
+                    label={kpi.label}
+                    tone={kpi.tone}
+                    value={kpi.value}
+                  />
+                ))}
+              </div>
             </div>
-            <p className="mt-4 text-3xl font-semibold tracking-[-0.05em] text-[color:var(--text-strong)]">
-              {kpi.formatted_value}
-            </p>
-            <p className="mt-3 text-sm leading-7 text-[color:var(--text-soft)]">{kpi.context}</p>
-            {kpi.change_label ? (
-              <p className="mt-3 text-xs text-[color:var(--text-dim)]">{kpi.change_label}</p>
-            ) : null}
-          </article>
-        ))}
-      </section>
-
-      {state.error ? (
-        <div className="mt-4 rounded-[24px] border border-[color:rgba(178,76,89,0.22)] bg-[color:rgba(178,76,89,0.08)] px-4 py-3 text-sm text-[color:var(--signal-rose)]">
-          {state.error}
-        </div>
-      ) : null}
-
-      <section className="mt-6">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="eyebrow">Canvas interactivo</span>
-            <span className="rounded-full border border-[color:var(--border)] bg-[color:rgba(255,255,255,0.7)] px-3 py-2 text-xs text-[color:var(--text-soft)]">
-              Arrastre desde cualquier card
-            </span>
-            <span className="rounded-full border border-[color:var(--border)] bg-[color:rgba(255,255,255,0.7)] px-3 py-2 text-xs text-[color:var(--text-soft)]">
-              Redimensione desde la pestaña inferior derecha
-            </span>
           </div>
-          <button
-            className="rounded-full border border-[color:var(--border)] bg-[color:rgba(255,255,255,0.7)] px-4 py-2 text-sm text-[color:var(--text-soft)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-strong)]"
-            onClick={() => setPanelCollapsed((current) => !current)}
-            type="button"
-          >
-            {panelCollapsed ? "Configurar canvas" : "Ocultar configuración"}
-          </button>
-        </div>
+        </section>
 
-        <div className="relative">
-          <div className="pointer-events-none absolute right-4 top-4 z-30">
-            <DashboardStudioPanel
-              activePreset={draftFilters.preset}
-              collapsed={panelCollapsed}
-              draftEndDate={draftFilters.endDate}
-              draftStartDate={draftFilters.startDate}
-              formError={formError}
-              itemCountLabel={`${visibleWidgetCount} visibles`}
-              items={studioItems}
-              onApplyFilters={applyDraftFilters}
-              onEndDateChange={(value) =>
-                setDraftFilters((current) => ({
-                  ...current,
-                  endDate: value,
-                }))
-              }
-              onPresetSelect={applyPreset}
-              onReset={resetCanvasLayout}
-              onStartDateChange={(value) =>
-                setDraftFilters((current) => ({
-                  ...current,
-                  startDate: value,
-                }))
-              }
-              onToggleCollapsed={() => setPanelCollapsed((current) => !current)}
-              onVisibilityChange={toggleWidgetVisibility}
-              rangeLabel={rangeLabel}
-              refreshing={state.refreshing}
-              selectedDayLabel={formatShortDate(activeSelectedDate)}
-            />
+        {state.error ? (
+          <div className="rounded-[24px] border border-[color:rgba(178,76,89,0.22)] bg-[color:rgba(178,76,89,0.08)] px-4 py-3 text-sm text-[color:var(--signal-rose)]">
+            {state.error}
           </div>
+        ) : null}
 
+        <DashboardStudioPanel
+          activePreset={draftFilters.preset}
+          collapsed={panelCollapsed}
+          draftEndDate={draftFilters.endDate}
+          draftStartDate={draftFilters.startDate}
+          formError={formError}
+          itemCountLabel={`${visibleWidgetCount} visibles`}
+          items={studioItems}
+          onApplyFilters={applyDraftFilters}
+          onEndDateChange={(value) =>
+            setDraftFilters((current) => ({
+              ...current,
+              endDate: value,
+            }))
+          }
+          onPresetSelect={applyPreset}
+          onReset={resetCanvasLayout}
+          onStartDateChange={(value) =>
+            setDraftFilters((current) => ({
+              ...current,
+              startDate: value,
+            }))
+          }
+          onToggleCollapsed={() => setPanelCollapsed((current) => !current)}
+          onVisibilityChange={toggleWidgetVisibility}
+          rangeLabel={rangeLabel}
+          refreshing={state.refreshing}
+          selectedDayLabel={formatShortDate(activeSelectedDate)}
+        />
+
+        <section className="relative flex-1 min-h-[calc(100dvh-8.5rem)] sm:min-h-[calc(100dvh-10rem)]">
           <DashboardCanvas
+            className="min-h-full"
             items={canvasItems}
             layouts={layouts}
             onLayoutsChange={handleLayoutsChange}
             renderItem={renderWidget}
           />
-        </div>
-      </section>
+        </section>
+      </div>
     </main>
   );
 }

@@ -12,11 +12,21 @@ type DashboardCanvasItem = {
   minH?: number;
 };
 
+export type DashboardCardSize = "small" | "medium" | "large" | "hero";
+
+export type DashboardCanvasRenderMeta = Readonly<{
+  height: number;
+  isCompact: boolean;
+  size: DashboardCardSize;
+  width: number;
+}>;
+
 type DashboardCanvasProps = Readonly<{
+  className?: string;
   items: DashboardCanvasItem[];
   layouts: DashboardWidgetLayouts;
   onLayoutsChange: (layouts: DashboardWidgetLayouts) => void;
-  renderItem: (id: string) => React.ReactNode;
+  renderItem: (id: string, meta: DashboardCanvasRenderMeta) => React.ReactNode;
 }>;
 
 type InteractionState = {
@@ -262,13 +272,13 @@ function toLogicalLayouts(
 
 function accentRing(accent: DashboardCanvasItem["accent"]) {
   if (accent === "cyan") {
-    return "border-[color:rgba(21,125,120,0.24)]";
+    return "border-[color:rgba(255,136,62,0.22)]";
   }
   if (accent === "amber") {
-    return "border-[color:rgba(176,108,31,0.24)]";
+    return "border-[color:rgba(255,122,31,0.24)]";
   }
   if (accent === "rose") {
-    return "border-[color:rgba(178,76,89,0.24)]";
+    return "border-[color:rgba(210,96,52,0.22)]";
   }
   return "border-[color:var(--border)]";
 }
@@ -277,7 +287,35 @@ function isResizeHandle(target: EventTarget | null) {
   return target instanceof Element && Boolean(target.closest("[data-canvas-resize='true']"));
 }
 
+function isInteractiveContent(target: EventTarget | null) {
+  return (
+    target instanceof Element &&
+    Boolean(
+      target.closest(
+        "a, button, input, textarea, select, summary, label, [role='button'], [role='switch'], [data-canvas-interactive='true']",
+      ),
+    )
+  );
+}
+
+function resolveCardSize(layout: DashboardWidgetLayout): DashboardCardSize {
+  if ((layout.w >= 6 && layout.h >= 5) || layout.w >= 8) {
+    return "hero";
+  }
+
+  if (layout.w >= 5 || layout.h >= 5) {
+    return "large";
+  }
+
+  if (layout.w >= 4 || layout.h >= 4) {
+    return "medium";
+  }
+
+  return "small";
+}
+
 export function DashboardCanvas({
+  className,
   items,
   layouts,
   onLayoutsChange,
@@ -321,9 +359,12 @@ export function DashboardCanvas({
   );
   const rowHeight = useMemo(() => {
     const ratio =
-      columnCount === MOBILE_COLUMNS ? 0.56 : columnCount === TABLET_COLUMNS ? 0.72 : 0.78;
-    const maxHeight = columnCount === MOBILE_COLUMNS ? 240 : 132;
-    return clamp(Math.round(columnWidth * ratio), 76, maxHeight);
+      columnCount === MOBILE_COLUMNS ? 0.18 : columnCount === TABLET_COLUMNS ? 0.48 : 0.68;
+    const minHeight =
+      columnCount === MOBILE_COLUMNS ? 56 : columnCount === TABLET_COLUMNS ? 72 : 76;
+    const maxHeight =
+      columnCount === MOBILE_COLUMNS ? 88 : columnCount === TABLET_COLUMNS ? 108 : 128;
+    return clamp(Math.round(columnWidth * ratio), minHeight, maxHeight);
   }, [columnCount, columnWidth]);
 
   useEffect(() => {
@@ -460,15 +501,20 @@ export function DashboardCanvas({
   const canvasHeight = canvasRows * rowHeight + Math.max(canvasRows - 1, 0) * GRID_GAP;
 
   return (
-    <div className="rounded-[36px] border border-[color:var(--border)] bg-[color:rgba(255,255,255,0.5)] p-2.5 shadow-[var(--shadow-strong)] sm:p-3">
+    <div
+      className={[
+        "dashboard-canvas-shell rounded-[36px] p-2.5 sm:p-3",
+        className ?? "",
+      ].join(" ")}
+    >
       <div
-        className="relative overflow-hidden rounded-[30px] border border-[color:rgba(67,57,47,0.1)] bg-[linear-gradient(180deg,rgba(255,255,255,0.7),rgba(255,255,255,0.22))]"
+        className="dashboard-magic-grid relative rounded-[30px] border border-[color:rgba(255,188,150,0.08)]"
         ref={containerRef}
         style={{
           minHeight: `${canvasHeight}px`,
           backgroundImage: `
-            linear-gradient(rgba(32,27,23,0.04) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(32,27,23,0.04) 1px, transparent 1px)
+            linear-gradient(rgba(255,255,255,0.028) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,0.028) 1px, transparent 1px)
           `,
           backgroundSize: `${columnWidth + GRID_GAP}px ${rowHeight + GRID_GAP}px`,
           backgroundPosition: "0 0",
@@ -478,7 +524,7 @@ export function DashboardCanvas({
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "radial-gradient(circle at 0% 0%, rgba(21,125,120,0.08), transparent 26%), radial-gradient(circle at 100% 78%, rgba(176,108,31,0.1), transparent 24%), radial-gradient(circle at 55% 45%, rgba(255,255,255,0.32), transparent 24%)",
+              "radial-gradient(circle at 0% 0%, rgba(255,90,0,0.08), transparent 24%), radial-gradient(circle at 100% 78%, rgba(255,122,31,0.1), transparent 24%), radial-gradient(circle at 55% 45%, rgba(255,255,255,0.04), transparent 22%)",
           }}
         />
 
@@ -488,9 +534,16 @@ export function DashboardCanvas({
           const height = layout.h * rowHeight + Math.max(layout.h - 1, 0) * GRID_GAP;
           const left = layout.x * (columnWidth + GRID_GAP);
           const top = layout.y * (rowHeight + GRID_GAP);
+          const size = resolveCardSize(layout);
+          const renderMeta: DashboardCanvasRenderMeta = {
+            height,
+            isCompact: size === "small",
+            size,
+            width,
+          };
           const cardShadow = isActive
             ? "shadow-[0_30px_90px_rgba(20,16,12,0.22)]"
-            : "hover:shadow-[0_24px_56px_rgba(28,22,16,0.12)]";
+            : "hover:shadow-[0_28px_72px_rgba(28,22,16,0.14)]";
 
           return (
             <div
@@ -510,7 +563,12 @@ export function DashboardCanvas({
                 suppressClickRef.current = false;
               }}
               onPointerDown={(event) => {
-                if (!canEdit || event.button !== 0 || isResizeHandle(event.target)) {
+                if (
+                  !canEdit ||
+                  event.button !== 0 ||
+                  isResizeHandle(event.target) ||
+                  isInteractiveContent(event.target)
+                ) {
                   return;
                 }
 
@@ -531,7 +589,7 @@ export function DashboardCanvas({
             >
               <div
                 className={[
-                  "group relative h-full overflow-hidden rounded-[32px] border bg-[color:rgba(255,255,255,0.86)] shadow-[0_18px_44px_rgba(45,34,24,0.1)] transition-[box-shadow,border-color]",
+                  "group relative h-full overflow-hidden rounded-[32px] border bg-[linear-gradient(180deg,rgba(44,17,8,0.96),rgba(23,9,4,0.98))] shadow-[0_22px_56px_rgba(0,0,0,0.26)] transition-[box-shadow,border-color,transform]",
                   accentRing(item.accent),
                   cardShadow,
                 ].join(" ")}
@@ -539,10 +597,10 @@ export function DashboardCanvas({
                   touchAction: canEdit ? "none" : "pan-y",
                 }}
               >
-                <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-[linear-gradient(180deg,rgba(255,255,255,0.72),transparent)]" />
-                <div className="pointer-events-none absolute inset-0 rounded-[32px] shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]" />
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),transparent)]" />
+                <div className="pointer-events-none absolute inset-0 rounded-[32px] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]" />
 
-                <div className="h-full">{renderItem(item.id)}</div>
+                <div className="h-full">{renderItem(item.id, renderMeta)}</div>
 
                 {canEdit ? (
                   <button
@@ -563,8 +621,8 @@ export function DashboardCanvas({
                     }}
                     type="button"
                   >
-                    <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-br-[9px] border-b-2 border-r-2 border-[color:rgba(32,27,23,0.34)]" />
-                    <span className="absolute bottom-1.5 right-1.5 h-2.5 w-2.5 rounded-br-[7px] border-b-2 border-r-2 border-[color:rgba(32,27,23,0.2)]" />
+                    <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-br-[9px] border-b-2 border-r-2 border-[color:rgba(255,211,189,0.38)]" />
+                    <span className="absolute bottom-1.5 right-1.5 h-2.5 w-2.5 rounded-br-[7px] border-b-2 border-r-2 border-[color:rgba(255,211,189,0.2)]" />
                   </button>
                 ) : null}
               </div>

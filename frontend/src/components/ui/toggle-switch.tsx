@@ -16,13 +16,13 @@ export function ToggleSwitch({
   onCheckedChange,
 }: ToggleSwitchProps) {
   let wrapperTone =
-    "border-[color:var(--border)] bg-[color:var(--surface-strong)] hover:border-[color:var(--border-strong)]";
+    "border-[color:rgba(234,77,161,0.1)] bg-[linear-gradient(180deg,rgba(255,255,255,0.92),rgba(255,249,244,0.88))] hover:border-[color:rgba(234,77,161,0.22)]";
   if (disabled) {
     wrapperTone =
       "cursor-not-allowed border-[color:var(--border)] bg-[color:rgba(255,255,255,0.45)] opacity-60";
   } else if (checked) {
     wrapperTone =
-      "border-[color:rgba(21,125,120,0.24)] bg-[color:rgba(21,125,120,0.08)]";
+      "border-[color:rgba(234,77,161,0.22)] bg-[linear-gradient(135deg,rgba(255,143,107,0.1),rgba(234,77,161,0.1),rgba(143,103,255,0.08))]";
   }
 
   return (
@@ -46,13 +46,16 @@ export function ToggleSwitch({
         className={[
           "relative mt-0.5 inline-flex h-7 w-12 shrink-0 rounded-full border transition",
           checked
-            ? "border-[color:rgba(21,125,120,0.24)] bg-[color:rgba(21,125,120,0.2)]"
+            ? "border-[color:rgba(234,77,161,0.22)] bg-[linear-gradient(135deg,rgba(255,143,107,0.32),rgba(234,77,161,0.3),rgba(143,103,255,0.28))]"
             : "border-[color:var(--border)] bg-[color:rgba(32,27,23,0.08)]",
         ].join(" ")}
       >
         <span
           className={[
-            "absolute top-1 inline-flex size-5 rounded-full bg-[color:var(--surface-strong)] shadow-[0_8px_14px_rgba(22,18,13,0.18)] transition",
+            "absolute top-1 inline-flex size-5 rounded-full shadow-[0_8px_14px_rgba(22,18,13,0.18)] transition",
+            checked
+              ? "bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(255,220,198,0.94))]"
+              : "bg-[color:var(--surface-strong)]",
             checked ? "left-6" : "left-1",
           ].join(" ")}
         />

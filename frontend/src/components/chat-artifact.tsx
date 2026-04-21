@@ -4,34 +4,34 @@ import type { ChatArtifact } from "@/lib/api";
 
 function toneClasses(tone: ChatArtifact["cards"][number]["tone"]): string {
   if (tone === "accent") {
-    return "border-[color:rgba(21,125,120,0.18)] bg-[color:rgba(21,125,120,0.08)]";
+    return "border-[color:rgba(234,77,161,0.16)] bg-[linear-gradient(135deg,rgba(234,77,161,0.1),rgba(255,143,107,0.06))]";
   }
 
   if (tone === "warning") {
-    return "border-[color:rgba(178,76,89,0.18)] bg-[color:rgba(178,76,89,0.08)]";
+    return "border-[color:rgba(255,206,115,0.16)] bg-[linear-gradient(135deg,rgba(255,206,115,0.12),rgba(255,143,107,0.06))]";
   }
 
   if (tone === "muted") {
-    return "border-[color:var(--border)] bg-[color:rgba(32,27,23,0.03)]";
+    return "border-[color:rgba(255,255,255,0.08)] bg-[color:rgba(255,255,255,0.04)]";
   }
 
-  return "border-[color:var(--border)] bg-[color:var(--surface-strong)]";
+  return "border-[color:rgba(255,255,255,0.08)] bg-[color:rgba(255,255,255,0.04)]";
 }
 
 function barTone(tone: ChatArtifact["points"][number]["tone"], highlight: boolean): string {
   if (highlight) {
-    return "bg-[color:var(--text-strong)]";
+    return "bg-[linear-gradient(180deg,rgba(255,143,107,0.96),rgba(234,77,161,0.92),rgba(143,103,255,0.88))]";
   }
 
   if (tone === "warning") {
-    return "bg-[color:rgba(178,76,89,0.52)]";
+    return "bg-[color:rgba(255,206,115,0.58)]";
   }
 
   if (tone === "accent") {
-    return "bg-[color:rgba(21,125,120,0.34)]";
+    return "bg-[color:rgba(234,77,161,0.48)]";
   }
 
-  return "bg-[color:rgba(32,27,23,0.18)]";
+  return "bg-[color:rgba(255,255,255,0.22)]";
 }
 
 type ChatArtifactViewProps = Readonly<{
@@ -46,17 +46,17 @@ export function ChatArtifactView({ artifact }: ChatArtifactViewProps) {
   const maxPointValue = Math.max(...artifact.points.map((point) => point.value), 0);
 
   return (
-    <section className="mt-5 overflow-hidden rounded-[26px] border border-[color:var(--border)] bg-[color:var(--surface-strong)] p-4 shadow-[var(--shadow-soft)]">
+    <section className="mt-5 overflow-hidden rounded-[26px] border border-[color:rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-4 shadow-[var(--shadow-soft)]">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-dim)]">
+          <p className="text-[11px] uppercase tracking-[0.16em] text-[color:rgba(255,240,232,0.46)]">
             Corte visual
           </p>
-          <p className="mt-2 text-sm font-medium text-[color:var(--text-strong)]">
+          <p className="mt-2 text-sm font-medium text-[color:var(--copilot-text)]">
             {artifact.title}
           </p>
           {artifact.subtitle ? (
-            <p className="mt-1 text-xs leading-6 text-[color:var(--text-soft)]">
+            <p className="mt-1 text-xs leading-6 text-[color:var(--copilot-text-soft)]">
               {artifact.subtitle}
             </p>
           ) : null}
@@ -70,14 +70,14 @@ export function ChatArtifactView({ artifact }: ChatArtifactViewProps) {
               key={`${card.label}-${card.value}`}
               className={`rounded-[20px] border p-3 ${toneClasses(card.tone)}`}
             >
-              <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-dim)]">
+              <p className="text-[11px] uppercase tracking-[0.16em] text-[color:rgba(255,240,232,0.46)]">
                 {card.label}
               </p>
-              <p className="mt-2 text-lg font-semibold text-[color:var(--text-strong)]">
+              <p className="mt-2 text-lg font-semibold text-[color:var(--copilot-text)]">
                 {card.value}
               </p>
               {card.detail ? (
-                <p className="mt-1 text-xs leading-5 text-[color:var(--text-soft)]">
+                <p className="mt-1 text-xs leading-5 text-[color:var(--copilot-text-soft)]">
                   {card.detail}
                 </p>
               ) : null}
@@ -91,10 +91,10 @@ export function ChatArtifactView({ artifact }: ChatArtifactViewProps) {
           <div className="flex min-w-max items-end gap-2">
             {artifact.points.map((point) => (
               <div key={`${point.label}-${point.formatted_value}`} className="w-12 text-center">
-                <div className="relative flex h-40 items-end justify-center overflow-hidden rounded-[18px] border border-[color:var(--border)] bg-[color:rgba(32,27,23,0.03)] px-2 py-2">
-                  <div className="pointer-events-none absolute inset-x-0 top-1/4 border-t border-dashed border-[color:rgba(32,27,23,0.08)]" />
-                  <div className="pointer-events-none absolute inset-x-0 top-2/4 border-t border-dashed border-[color:rgba(32,27,23,0.08)]" />
-                  <div className="pointer-events-none absolute inset-x-0 top-3/4 border-t border-dashed border-[color:rgba(32,27,23,0.08)]" />
+                <div className="relative flex h-40 items-end justify-center overflow-hidden rounded-[18px] border border-[color:rgba(255,255,255,0.08)] bg-[color:rgba(255,255,255,0.04)] px-2 py-2">
+                  <div className="pointer-events-none absolute inset-x-0 top-1/4 border-t border-dashed border-[color:rgba(255,255,255,0.08)]" />
+                  <div className="pointer-events-none absolute inset-x-0 top-2/4 border-t border-dashed border-[color:rgba(255,255,255,0.08)]" />
+                  <div className="pointer-events-none absolute inset-x-0 top-3/4 border-t border-dashed border-[color:rgba(255,255,255,0.08)]" />
                   <div
                     className={`w-full rounded-full transition ${barTone(point.tone, point.highlight)}`}
                     style={{
@@ -105,14 +105,16 @@ export function ChatArtifactView({ artifact }: ChatArtifactViewProps) {
                     }}
                   />
                 </div>
-                <p className="mt-2 text-[11px] font-medium text-[color:var(--text-strong)]">
+                <p className="mt-2 text-[11px] font-medium text-[color:var(--copilot-text)]">
                   {point.label}
                 </p>
-                <p className="mt-1 text-[11px] text-[color:var(--text-soft)]">
+                <p className="mt-1 text-[11px] text-[color:var(--copilot-text-soft)]">
                   {point.formatted_value}
                 </p>
                 {point.detail ? (
-                  <p className="mt-1 text-[10px] text-[color:var(--text-dim)]">{point.detail}</p>
+                  <p className="mt-1 text-[10px] text-[color:rgba(255,240,232,0.46)]">
+                    {point.detail}
+                  </p>
                 ) : null}
               </div>
             ))}
@@ -121,7 +123,9 @@ export function ChatArtifactView({ artifact }: ChatArtifactViewProps) {
       ) : null}
 
       {artifact.footnote ? (
-        <p className="mt-4 text-xs leading-6 text-[color:var(--text-soft)]">{artifact.footnote}</p>
+        <p className="mt-4 text-xs leading-6 text-[color:var(--copilot-text-soft)]">
+          {artifact.footnote}
+        </p>
       ) : null}
     </section>
   );

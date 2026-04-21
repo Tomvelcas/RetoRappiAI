@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { Fraunces, IBM_Plex_Sans } from "next/font/google";
+import { Fraunces, IBM_Plex_Sans, Lobster } from "next/font/google";
 
-import { SiteNav } from "@/components/site-nav";
+import { RootShell } from "@/components/root-shell";
 
 import "./globals.css";
 
@@ -16,6 +16,12 @@ const bodyFont = IBM_Plex_Sans({
   variable: "--font-body",
 });
 
+const brandFont = Lobster({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-brand",
+});
+
 export const metadata: Metadata = {
   title: "Panel de disponibilidad",
   description: "Dashboard visual y copiloto analítico para explorar históricos de disponibilidad.",
@@ -28,11 +34,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es">
-      <body className={`${headingFont.variable} ${bodyFont.variable}`}>
-        <div className="relative min-h-screen">
-          <SiteNav />
-          <div className="relative z-10">{children}</div>
-        </div>
+      <body className={`${headingFont.variable} ${bodyFont.variable} ${brandFont.variable}`}>
+        <RootShell>{children}</RootShell>
       </body>
     </html>
   );

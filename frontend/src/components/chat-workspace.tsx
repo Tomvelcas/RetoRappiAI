@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { ChatArtifactView } from "@/components/chat-artifact";
 import { ChatSettingsPanel } from "@/components/chat-settings-panel";
+import { ChatThinkingCore } from "@/components/chat-thinking-core";
 import type { BackendHealth, ChatQueryResponse } from "@/lib/api";
 import { getBackendHealth, queryChat } from "@/lib/api";
 import {
@@ -30,6 +31,21 @@ const starterPrompts = [
   "Muéstreme los días con menor cobertura.",
   "Compare entre semana contra fines de semana.",
   "¿Cuál fue la hora con menor cobertura el 11 de febrero?",
+];
+
+const EMPTY_STATE_CARDS = [
+  {
+    title: "Brief del día",
+    body: "Lea una fecha puntual.",
+  },
+  {
+    title: "Comparación",
+    body: "Cruce dos momentos.",
+  },
+  {
+    title: "Gráfico",
+    body: "Genere una pieza para el canvas.",
+  },
 ];
 
 function relativeTimeLabel(value: string): string {
@@ -98,7 +114,7 @@ function assistantEyebrow(payload: ChatQueryResponse | undefined): string {
 
 function assistantSubline(payload: ChatQueryResponse | undefined): string {
   if (!payload?.time_window) {
-    return "Construido desde analítica procesada y evidencia adjunta.";
+    return "Respuesta anclada al dato.";
   }
 
   const start = payload.time_window.effective_start;
@@ -107,22 +123,96 @@ function assistantSubline(payload: ChatQueryResponse | undefined): string {
 
   if (payload.answer_mode === "llm_enhanced") {
     if (payload.web_research_used) {
-      return `Grounded sobre ${scope}, luego enriquecido con redacción y contexto externo tentativo.`;
+      return `Base en ${scope} con contexto externo separado.`;
     }
-    return `Grounded sobre ${scope}, luego refinado con redacción enriquecida.`;
+    return `Base en ${scope} con mejor redacción.`;
   }
 
   if (payload.answer_mode === "deterministic_fallback") {
-    return `Grounded sobre ${scope}. Se pidió enriquecimiento, pero la respuesta quedó determinística.`;
+    return `Base en ${scope}. Quedó en modo grounded.`;
   }
 
-  return `Grounded sobre ${scope} con analítica determinística.`;
+  return `Base en ${scope}.`;
 }
 
 function pinSuccessCopy(kind: "artifact" | "note"): string {
   return kind === "artifact"
     ? "Widget fijado en el canvas del dashboard."
     : "Insight fijado en el canvas del dashboard.";
+}
+
+function presenceTitle(isSubmitting: boolean, activeSession: StoredChatSession | null): string {
+  if (isSubmitting) {
+    return "Pensando";
+  }
+
+  if (activeSession?.turns.length) {
+    return "Copilot";
+  }
+
+  return "Copilot";
+}
+
+function presenceDetail(
+  isSubmitting: boolean,
+  activeSession: StoredChatSession | null,
+  llmReady: boolean,
+): string {
+  if (isSubmitting) {
+    return "Cruza señal, cobertura y memoria antes de responder.";
+  }
+
+  if (activeSession?.turns.length) {
+    const turnsLabel = `${activeSession.turns.length} mensajes en contexto`;
+    const modeLabel = llmReady ? "narrativa disponible" : "solo grounded";
+    return `${turnsLabel}. ${modeLabel}.`;
+  }
+
+  return "Pregunte por una fecha, una caída o una tendencia.";
+}
+
+function presenceSubtitle(
+  isSubmitting: boolean,
+  backendHealth: BackendHealth | null,
+  useLlm: boolean,
+  allowHypotheses: boolean,
+  allowWebResearch: boolean,
+): string {
+  const model = backendHealth?.llm.model ?? (backendHealth?.llm.ready ? "llm" : "motor grounded");
+
+  if (isSubmitting) {
+    return `${model} · razonando sobre el histórico`;
+  }
+
+  if (!backendHealth?.llm.ready || !useLlm) {
+    return `${model} · grounded`;
+  }
+
+  if (allowWebResearch) {
+    return `${model} · grounded + contexto web`;
+  }
+
+  if (allowHypotheses) {
+    return `${model} · grounded + hipótesis`;
+  }
+
+  return `${model} · redacción`;
+}
+
+function pendingResponseDetail(
+  useLlm: boolean,
+  allowHypotheses: boolean,
+  allowWebResearch: boolean,
+): string {
+  if (useLlm && allowHypotheses && allowWebResearch) {
+    return "Fija el dato y separa hipótesis y contexto externo.";
+  }
+
+  if (useLlm) {
+    return "Ordena la evidencia y pule la salida.";
+  }
+
+  return "Prepara una respuesta grounded.";
 }
 
 export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
@@ -247,6 +337,15 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
   const latestFollowUps = asArray(latestAssistantPayload?.follow_up_questions);
   const followUps = latestFollowUps.length ? latestFollowUps : starterPrompts;
   const notice = llmBannerCopy(backendHealth);
+  const heroTitle = presenceTitle(isSubmitting, activeSession);
+  const heroDetail = presenceDetail(isSubmitting, activeSession, llmReady);
+  const heroSubtitle = presenceSubtitle(
+    isSubmitting,
+    backendHealth,
+    useLlm,
+    allowHypotheses,
+    allowWebResearch,
+  );
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: "end" });
@@ -434,19 +533,17 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
   }
 
   return (
-    <main className="mx-auto max-w-[1480px] px-4 pb-20 pt-8 sm:px-6 lg:px-8">
-      <section className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)_340px]">
-        <aside className="panel flex min-h-[760px] flex-col rounded-[34px] p-4">
+    <main className="chat-page-shell mx-auto max-w-[1540px] px-4 pb-20 pt-6 sm:px-6 lg:px-8">
+      <section className="relative z-10 grid gap-5 xl:grid-cols-[260px_minmax(0,1fr)_320px]">
+        <aside className="chat-shell-card order-2 flex flex-col rounded-[34px] p-4 xl:order-1 xl:sticky xl:top-[104px] xl:max-h-[calc(100dvh-124px)]">
           <div className="border-b border-[color:var(--border)] px-2 pb-4">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="eyebrow">Hilos</p>
-                <p className="mt-2 text-sm text-[color:var(--text-soft)]">
-                  Hilos guardados localmente y listos para reabrir.
-                </p>
+                <p className="mt-2 text-sm text-[color:var(--text-soft)]">Memoria local.</p>
               </div>
               <button
-                className="rounded-full border border-[color:var(--border)] bg-[color:var(--surface-strong)] px-3 py-2 text-sm text-[color:var(--text-strong)] transition hover:border-[color:var(--border-strong)]"
+                className="copilot-outline-button rounded-full px-3 py-2 text-sm text-[color:var(--text-strong)] transition"
                 onClick={createNewChat}
                 type="button"
               >
@@ -456,14 +553,14 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
 
             <div className="mt-4 flex flex-wrap gap-2">
               <button
-                className="rounded-full border border-[color:var(--border)] px-3 py-2 text-xs text-[color:var(--text-soft)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-strong)]"
+                className="copilot-outline-button rounded-full px-3 py-2 text-xs text-[color:var(--text-soft)] transition hover:text-[color:var(--text-strong)]"
                 onClick={clearCurrentChat}
                 type="button"
               >
                 Limpiar hilo
               </button>
               <button
-                className="rounded-full border border-[color:var(--border)] px-3 py-2 text-xs text-[color:var(--text-soft)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-strong)]"
+                className="copilot-outline-button rounded-full px-3 py-2 text-xs text-[color:var(--text-soft)] transition hover:text-[color:var(--text-strong)]"
                 onClick={deleteCurrentChat}
                 type="button"
               >
@@ -517,50 +614,32 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
           </div>
         </aside>
 
-        <section className="panel flex min-h-[760px] flex-col rounded-[34px]">
+        <section className="chat-shell-card order-1 flex min-h-[680px] flex-col overflow-hidden rounded-[34px] xl:order-2 xl:min-h-[calc(100dvh-124px)]">
           <div className="border-b border-[color:var(--border)] px-6 py-5">
-            <div className="flex flex-col gap-5">
+            <div className="flex flex-col gap-4">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="eyebrow">Copiloto analítico</span>
-                <span className="rounded-full border border-[color:var(--border)] px-3 py-1 text-xs text-[color:var(--text-soft)]">
-                  {llmReady ? "redacción lista" : "solo grounded"}
+                <span className="eyebrow">Copilot</span>
+                <span className="copilot-pill rounded-full px-3 py-1 text-xs">
+                  {llmReady ? "motor listo" : "grounded"}
                 </span>
-                <span className="rounded-full border border-[color:var(--border)] px-3 py-1 text-xs text-[color:var(--text-soft)]">
-                  {pinnedCount} widgets fijados
+                <span className="copilot-pill rounded-full px-3 py-1 text-xs">
+                  {pinnedCount} piezas al canvas
+                </span>
+                <span className="copilot-pill rounded-full px-3 py-1 text-xs">
+                  {activeSession?.title ?? "Nuevo hilo"}
                 </span>
               </div>
 
-              <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-                <div>
-                  <h1
-                    className="text-4xl font-semibold tracking-[-0.05em] text-[color:var(--text-strong)]"
-                    style={{ fontFamily: "var(--font-heading), serif" }}
-                  >
-                    Pregunte, pruebe un modo de respuesta y lleve piezas al canvas.
-                  </h1>
-                  <p className="mt-3 max-w-2xl text-sm leading-7 text-[color:var(--text-soft)]">
-                    La conversación mantiene la evidencia pegada a cada respuesta. Si algo sirve, puede fijarlo en el dashboard como widget.
-                  </p>
-                </div>
-
-                <div className="rounded-[24px] border border-[color:var(--border)] bg-[color:rgba(255,255,255,0.74)] p-4">
-                  <p className="text-sm font-medium text-[color:var(--text-strong)]">
-                    Hilo activo
-                  </p>
-                  <p className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[color:var(--text-strong)]">
-                    {activeSession?.title ?? "Nuevo hilo"}
-                  </p>
-                  <p className="mt-2 text-sm leading-7 text-[color:var(--text-soft)]">
-                    {activeSession?.turns.length
-                      ? `${activeSession.turns.length} mensajes guardados en este navegador.`
-                      : "Empiece con un brief de día, una comparación o un gráfico."}
-                  </p>
-                </div>
-              </div>
+              <ChatThinkingCore
+                active={isSubmitting}
+                detail={heroDetail}
+                subtitle={heroSubtitle}
+                title={heroTitle}
+              />
             </div>
           </div>
 
-          <div className="glass-scroll flex-1 overflow-y-auto px-6 py-6">
+          <div className="glass-scroll flex-1 overflow-y-auto px-4 py-5 sm:px-6">
             <div className="mx-auto max-w-3xl space-y-8">
               {activeSession?.turns.length ? (
                 activeSession.turns.map((turn, index) => {
@@ -575,17 +654,19 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
                   return (
                     <article key={turn.id}>
                       {turn.role === "user" ? (
-                        <div className="ml-auto max-w-[78%] rounded-[28px] border border-[color:rgba(21,125,120,0.18)] bg-[linear-gradient(135deg,rgba(21,125,120,0.12),rgba(255,255,255,0.86))] px-5 py-4 shadow-[var(--shadow-soft)]">
-                          <p className="text-sm leading-7 text-[color:var(--text-strong)]">
+                        <div className="copilot-message-user ml-auto max-w-[78%] rounded-[28px] px-5 py-4">
+                          <p className="text-sm leading-7 text-[color:#fff8f4]">
                             {turn.text}
                           </p>
                         </div>
                       ) : (
-                        <div className="max-w-[94%] rounded-[30px] border border-[color:var(--border)] bg-[color:rgba(255,255,255,0.82)] px-5 py-5 shadow-[var(--shadow-soft)] backdrop-blur">
+                        <div className="copilot-message-assistant max-w-[94%] rounded-[30px] px-5 py-5 backdrop-blur">
                           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                             <div>
-                              <p className="eyebrow">{assistantEyebrow(payload)}</p>
-                              <p className="mt-2 text-sm text-[color:var(--text-soft)]">
+                              <p className="text-[11px] uppercase tracking-[0.18em] text-[color:rgba(255,240,232,0.56)]">
+                                {assistantEyebrow(payload)}
+                              </p>
+                              <p className="mt-2 text-sm text-[color:var(--copilot-text-soft)]">
                                 {assistantSubline(payload)}
                               </p>
                             </div>
@@ -597,11 +678,11 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
                                 >
                                   {payload.confidence}
                                 </span>
-                                <span className="rounded-full border border-[color:var(--border)] px-3 py-1 text-xs text-[color:var(--text-soft)]">
+                                <span className="copilot-soft-chip rounded-full px-3 py-1 text-xs">
                                   {modeLabel(payload.answer_mode)}
                                 </span>
                                 <button
-                                  className="rounded-full border border-[color:var(--border)] px-3 py-1 text-xs text-[color:var(--text-soft)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-strong)]"
+                                  className="copilot-outline-button rounded-full px-3 py-1 text-xs text-[color:#8a4d67] transition"
                                   onClick={() => pinNote(payload, sourceQuestion)}
                                   type="button"
                                 >
@@ -614,7 +695,7 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
                           <div className="mt-5 space-y-4">
                             {answerParagraphs.map((paragraph, paragraphIndex) => (
                               <p
-                                className="text-[15px] leading-8 text-[color:var(--text-strong)]"
+                                className="text-[15px] leading-8 text-[color:var(--copilot-text)]"
                                 key={`${turn.id}-paragraph-${paragraphIndex}`}
                               >
                                 {paragraph}
@@ -626,16 +707,16 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
                             <div className="mt-5 grid gap-3 sm:grid-cols-3">
                               {evidenceHighlights.map((item) => (
                                 <div
-                                  className="rounded-[20px] border border-[color:var(--border)] bg-[color:var(--surface-strong)] p-3"
+                                  className="rounded-[20px] border border-[color:rgba(255,255,255,0.08)] bg-[color:rgba(255,255,255,0.04)] p-3"
                                   key={`${item.label}-${item.value}`}
                                 >
-                                  <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-dim)]">
+                                  <p className="text-[11px] uppercase tracking-[0.16em] text-[color:rgba(255,240,232,0.46)]">
                                     {item.label}
                                   </p>
-                                  <p className="mt-2 text-sm font-medium leading-6 text-[color:var(--text-strong)]">
+                                  <p className="mt-2 text-sm font-medium leading-6 text-[color:var(--copilot-text)]">
                                     {item.value}
                                   </p>
-                                  <p className="mt-1 text-[11px] text-[color:var(--text-soft)]">
+                                  <p className="mt-1 text-[11px] text-[color:var(--copilot-text-soft)]">
                                     {sourceLabel(item.source)}
                                   </p>
                                 </div>
@@ -647,7 +728,7 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
                             <div key={`${artifact.kind}-${artifactIndex}-${artifact.title}`}>
                               <div className="mt-5 flex justify-end">
                                 <button
-                                  className="rounded-full border border-[color:var(--border)] px-3 py-2 text-xs text-[color:var(--text-soft)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-strong)]"
+                                  className="copilot-outline-button rounded-full px-3 py-2 text-xs text-[color:#8a4d67] transition"
                                   onClick={() => payload && pinArtifact(payload, artifactIndex, sourceQuestion)}
                                   type="button"
                                 >
@@ -663,8 +744,8 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
                               className={[
                                 "mt-5 rounded-[20px] px-4 py-3 text-sm leading-6",
                                 payload.answer_mode === "deterministic_fallback"
-                                  ? "border border-[color:rgba(176,108,31,0.18)] bg-[color:rgba(176,108,31,0.08)] text-[color:var(--signal-amber)]"
-                                  : "border border-[color:rgba(178,76,89,0.18)] bg-[color:rgba(178,76,89,0.08)] text-[color:var(--signal-rose)]",
+                                  ? "border border-[color:rgba(255,206,115,0.18)] bg-[color:rgba(255,206,115,0.08)] text-[color:#ffd98f]"
+                                  : "border border-[color:rgba(234,77,161,0.18)] bg-[color:rgba(234,77,161,0.08)] text-[color:#ffb9d8]",
                               ].join(" ")}
                             >
                               <p className="text-sm font-medium">
@@ -681,7 +762,7 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
                           ) : null}
 
                           {payload?.hypotheses.length ? (
-                            <div className="mt-5 rounded-[20px] border border-[color:rgba(176,108,31,0.18)] bg-[color:rgba(176,108,31,0.08)] px-4 py-3 text-sm leading-6 text-[color:var(--signal-amber)]">
+                            <div className="mt-5 rounded-[20px] border border-[color:rgba(255,206,115,0.18)] bg-[color:rgba(255,206,115,0.08)] px-4 py-3 text-sm leading-6 text-[color:#ffd98f]">
                               <p className="text-sm font-medium">Hipótesis tentativas</p>
                               <div className="mt-2 space-y-2">
                                 {asArray(payload.hypotheses).map((item) => (
@@ -690,13 +771,13 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
                               </div>
                               {payload.web_research_used && asArray(payload.web_sources).length ? (
                                 <div className="mt-4 border-t border-[color:rgba(176,108,31,0.18)] pt-3">
-                                  <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-dim)]">
+                                  <p className="text-[11px] uppercase tracking-[0.16em] text-[color:rgba(255,240,232,0.46)]">
                                     Fuentes externas
                                   </p>
                                   <div className="mt-2 space-y-2">
                                     {asArray(payload.web_sources).slice(0, 4).map((source) => (
                                       <a
-                                        className="block text-sm underline decoration-[color:rgba(176,108,31,0.32)] underline-offset-4 hover:text-[color:var(--text-strong)]"
+                                        className="block text-sm underline decoration-[color:rgba(255,206,115,0.42)] underline-offset-4 hover:text-[color:#fff7f2]"
                                         href={source.url}
                                         key={source.url}
                                         rel="noreferrer"
@@ -713,13 +794,13 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
 
                           {payload?.follow_up_questions.length ? (
                             <div className="mt-5">
-                              <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-dim)]">
+                              <p className="text-[11px] uppercase tracking-[0.16em] text-[color:rgba(255,240,232,0.46)]">
                                 Siguiente paso
                               </p>
                               <div className="mt-3 flex flex-wrap gap-2">
                                 {asArray(payload.follow_up_questions).slice(0, 3).map((prompt) => (
                                   <button
-                                    className="rounded-full border border-[color:var(--border)] bg-[color:var(--surface-strong)] px-3 py-2 text-xs text-[color:var(--text-soft)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-strong)]"
+                                    className="copilot-soft-chip rounded-full px-3 py-2 text-xs transition hover:border-[color:rgba(255,255,255,0.16)] hover:text-[color:#fff7f2]"
                                     key={prompt}
                                     onClick={() => setDraft(prompt)}
                                     type="button"
@@ -732,21 +813,21 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
                           ) : null}
 
                           {payload ? (
-                            <details className="mt-5 rounded-[22px] border border-[color:var(--border)] bg-[color:var(--surface-strong)] px-4 py-3">
-                              <summary className="cursor-pointer list-none text-sm font-medium text-[color:var(--text-strong)]">
+                            <details className="mt-5 rounded-[22px] border border-[color:rgba(255,255,255,0.08)] bg-[color:rgba(255,255,255,0.04)] px-4 py-3">
+                              <summary className="cursor-pointer list-none text-sm font-medium text-[color:var(--copilot-text)]">
                                 Detrás de esta respuesta
                               </summary>
 
-                              <div className="mt-4 space-y-4 text-sm text-[color:var(--text-soft)]">
+                              <div className="mt-4 space-y-4 text-sm text-[color:var(--copilot-text-soft)]">
                                 {asArray(payload.analysis_steps).length ? (
-                                  <div className="rounded-[18px] border border-[color:var(--border)] bg-[color:rgba(32,27,23,0.03)] px-4 py-3">
-                                    <p className="text-sm font-medium text-[color:var(--text-strong)]">
+                                  <div className="rounded-[18px] border border-[color:rgba(255,255,255,0.08)] bg-[color:rgba(255,255,255,0.04)] px-4 py-3">
+                                    <p className="text-sm font-medium text-[color:var(--copilot-text)]">
                                       Qué revisó el asistente
                                     </p>
                                     <div className="mt-3 space-y-2 text-sm leading-6">
                                       {asArray(payload.analysis_steps).map((item) => (
                                         <div className="flex gap-3" key={item}>
-                                          <span className="pt-[2px] text-[color:var(--text-dim)]">
+                                          <span className="pt-[2px] text-[color:rgba(255,240,232,0.42)]">
                                             •
                                           </span>
                                           <span>{item}</span>
@@ -759,14 +840,14 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
                                 <div className="grid gap-3 sm:grid-cols-2">
                                   {asArray(payload.evidence).map((item) => (
                                     <div
-                                      className="rounded-[18px] border border-[color:var(--border)] bg-[color:rgba(32,27,23,0.03)] px-4 py-3"
+                                      className="rounded-[18px] border border-[color:rgba(255,255,255,0.08)] bg-[color:rgba(255,255,255,0.04)] px-4 py-3"
                                       key={`${item.label}-${item.value}-detail`}
                                     >
-                                      <p className="text-sm font-medium text-[color:var(--text-strong)]">
+                                      <p className="text-sm font-medium text-[color:var(--copilot-text)]">
                                         {item.label}
                                       </p>
                                       <p className="mt-1 leading-6">{item.value}</p>
-                                      <p className="mt-2 text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-dim)]">
+                                      <p className="mt-2 text-[11px] uppercase tracking-[0.16em] text-[color:rgba(255,240,232,0.46)]">
                                         {sourceLabel(item.source)}
                                       </p>
                                     </div>
@@ -776,7 +857,7 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
                                 <div className="flex flex-wrap gap-2">
                                   {asArray(payload.source_tables).map((item) => (
                                     <span
-                                      className="rounded-full border border-[color:var(--border)] px-3 py-1 text-xs"
+                                      className="copilot-soft-chip rounded-full px-3 py-1 text-xs"
                                       key={item}
                                     >
                                       {sourceLabel(item)}
@@ -784,11 +865,11 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
                                   ))}
                                 </div>
 
-                                <p className="text-xs leading-6 text-[color:var(--text-dim)]">
+                                <p className="text-xs leading-6 text-[color:rgba(255,240,232,0.42)]">
                                   {payload.reasoning_scope}
                                 </p>
 
-                                <p className="text-xs leading-6 text-[color:var(--text-dim)]">
+                                <p className="text-xs leading-6 text-[color:rgba(255,240,232,0.42)]">
                                   {payload.disclaimer}
                                 </p>
                               </div>
@@ -800,10 +881,47 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
                   );
                 })
               ) : (
-                <div className="rounded-[28px] border border-[color:var(--border)] bg-[color:var(--surface-strong)] px-5 py-5 text-sm leading-7 text-[color:var(--text-soft)]">
-                  Empiece con un brief de día, una comparación o una petición de gráfico. Cada respuesta quedará con evidencia y podrá fijarla luego en el dashboard.
+                <div className="grid gap-4 lg:grid-cols-[0.95fr_1.05fr]">
+                  <div className="chat-shell-card rounded-[30px] p-6">
+                    <p className="eyebrow">Primer gesto</p>
+                    <h2
+                      className="mt-3 max-w-[15ch] text-[clamp(1.7rem,3vw,2.45rem)] font-semibold tracking-[-0.05em] text-[color:var(--text-strong)]"
+                      style={{ fontFamily: "var(--font-heading), serif" }}
+                    >
+                      Abra una fecha, una caída o una comparación.
+                    </h2>
+                    <p className="mt-3 max-w-xl text-sm leading-7 text-[color:var(--text-soft)]">
+                      Una pregunta breve basta.
+                    </p>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+                    {EMPTY_STATE_CARDS.map((card) => (
+                      <div className="chat-shell-card rounded-[24px] p-4" key={card.title}>
+                        <p className="text-sm font-medium text-[color:var(--text-strong)]">
+                          {card.title}
+                        </p>
+                        <p className="mt-2 text-sm leading-6 text-[color:var(--text-soft)]">
+                          {card.body}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
+
+              {isSubmitting ? (
+                <div className="max-w-[94%]">
+                  <ChatThinkingCore
+                    active
+                    compact
+                    detail={pendingResponseDetail(useLlm && llmReady, allowHypotheses, allowWebResearch)}
+                    label="Respuesta en curso"
+                    subtitle={heroSubtitle}
+                    title="Pensando"
+                  />
+                </div>
+              ) : null}
 
               {statusMessage ? (
                 <div className="rounded-[22px] border border-[color:rgba(21,125,120,0.18)] bg-[color:rgba(21,125,120,0.08)] px-4 py-3 text-sm text-[color:var(--signal-cyan)]">
@@ -824,9 +942,9 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
           <div className="border-t border-[color:var(--border)] px-4 py-4 sm:px-6">
             <div className="mx-auto max-w-3xl">
               <div className="flex flex-wrap gap-2">
-                {followUps.slice(0, 4).map((prompt) => (
+                {followUps.slice(0, 3).map((prompt) => (
                   <button
-                    className="rounded-full border border-[color:var(--border)] bg-[color:var(--surface-strong)] px-3 py-2 text-xs text-[color:var(--text-soft)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-strong)]"
+                    className="chat-kicker-chip rounded-full px-3 py-2 text-xs transition hover:text-[color:var(--text-strong)]"
                     key={prompt}
                     onClick={() => setDraft(prompt)}
                     type="button"
@@ -836,32 +954,33 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
                 ))}
               </div>
 
-              <div className="mt-3 rounded-[28px] border border-[color:var(--border)] bg-[color:var(--surface-strong)] px-4 py-3 shadow-[var(--shadow-soft)]">
+              <div className="chat-composer-shell mt-3 rounded-[28px] px-4 py-3">
+                <div className="mb-3 h-px w-full bg-[linear-gradient(90deg,transparent,rgba(255,143,107,0.92),rgba(234,77,161,0.86),rgba(143,103,255,0.78),transparent)]" />
                 <textarea
                   className="glass-scroll min-h-28 w-full resize-none bg-transparent text-sm leading-7 text-[color:var(--text-strong)] outline-none placeholder:text-[color:var(--text-dim)]"
                   onChange={(event) => setDraft(event.target.value)}
-                  placeholder="Pida un brief del día, una comparación o un gráfico."
+                  placeholder="Pregunte por una fecha, una caída o una tendencia."
                   value={draft}
                 />
                 <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="space-y-1">
-                    <p className="text-xs text-[color:var(--text-dim)]">
-                      Los hilos se guardan en este navegador hasta que los limpie.
-                    </p>
-                    <p className="text-xs text-[color:var(--text-dim)]">
-                      {llmReady
-                        ? "Puede dejar la respuesta 100% grounded o añadir redacción y contexto desde el panel lateral."
-                        : "Esta sesión está respondiendo en modo solo grounded."}
-                    </p>
+                  <p className="text-xs text-[color:var(--text-dim)]">
+                    {llmReady ? "Grounded con modos opcionales." : "Sesión en modo grounded."}
+                  </p>
+                  <div className="flex items-center gap-3">
+                    {isSubmitting ? (
+                      <span className="copilot-pill rounded-full px-3 py-2 text-xs uppercase tracking-[0.18em]">
+                        señal activa
+                      </span>
+                    ) : null}
+                    <button
+                      className="copilot-gradient-button rounded-full px-4 py-3 text-sm font-medium text-[color:#fff7f3] transition hover:opacity-92 disabled:cursor-not-allowed disabled:opacity-60"
+                      disabled={isSubmitting || !draft.trim() || !activeSession}
+                      onClick={() => void sendQuestion(draft)}
+                      type="button"
+                    >
+                      {isSubmitting ? "Pensando..." : "Enviar"}
+                    </button>
                   </div>
-                  <button
-                    className="rounded-full bg-[color:var(--text-strong)] px-4 py-3 text-sm font-medium text-[color:var(--surface-strong)] transition hover:opacity-92 disabled:cursor-not-allowed disabled:opacity-60"
-                    disabled={isSubmitting || !draft.trim() || !activeSession}
-                    onClick={() => void sendQuestion(draft)}
-                    type="button"
-                  >
-                    {isSubmitting ? "Pensando..." : "Enviar"}
-                  </button>
                 </div>
               </div>
             </div>

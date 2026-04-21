@@ -1,0 +1,9 @@
+{
+  "servers": {
+    "shadcn": {
+      "type": "stdio",
+      "command": "zsh",
+      "args": ["-lc", "cd frontend && npx shadcn@latest mcp"]
+    }
+  }
+}
