@@ -105,7 +105,7 @@ const SOLUTION_ASSETS = [
     width: 2000,
   },
   {
-    className: "right-[1%] bottom-[3%] hidden xl:block w-[12rem] 2xl:w-[15rem]",
+    className: "right-[3%] bottom-[12%] hidden xl:block w-[10.5rem] 2xl:w-[13rem]",
     depth: 0.72,
     glow: "rgba(255,140,80,0.12)",
     height: 1536,
@@ -227,7 +227,7 @@ export function HomeScene({ locale }: HomeSceneProps) {
       const solutionStages = gsap.utils.toArray<HTMLElement>("[data-solution-stage]", solutionSection);
 
       gsap.set(ctaStage, {
-        autoAlpha: 0.1,
+        autoAlpha: 1,
         rotateX: 12,
         scale: 0.94,
         transformOrigin: "center top",
@@ -316,7 +316,6 @@ export function HomeScene({ locale }: HomeSceneProps) {
         .to(
           ctaStage,
           {
-            autoAlpha: 1,
             rotateX: 0,
             scale: 1,
             yPercent: 0,
@@ -395,7 +394,7 @@ export function HomeScene({ locale }: HomeSceneProps) {
             y: 0,
             scrollTrigger: {
               start: "top 76%",
-              toggleActions: "play none none reverse",
+              toggleActions: "play none none none",
               trigger: choicesSection,
             },
           },

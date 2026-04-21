@@ -605,7 +605,11 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
     const sendDisabled = isSubmitting || !draft.trim() || !activeSession;
 
     return (
-      <div className={centered ? "mx-auto w-full max-w-[760px]" : "mx-auto w-full max-w-4xl"}>
+      <div
+        className={
+          centered ? "mx-auto w-full max-w-[760px]" : "mx-auto w-full max-w-[1180px]"
+        }
+      >
         {!centered ? (
           <div className="flex flex-wrap gap-2">
             {followUps.slice(0, 3).map((prompt) => (
@@ -637,8 +641,8 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
           <div className="mb-3 h-px w-full bg-[linear-gradient(90deg,transparent,rgba(255,143,107,0.72),rgba(255,183,142,0.82),transparent)]" />
           <textarea
             className={[
-              "glass-scroll w-full resize-none bg-transparent text-sm leading-7 text-[color:var(--text-strong)] outline-none placeholder:text-[color:var(--text-dim)]",
-              centered ? "min-h-28 text-base" : "min-h-28",
+              "glass-scroll w-full resize-none overflow-y-auto bg-transparent text-sm leading-7 text-[color:var(--text-strong)] outline-none placeholder:text-[color:var(--text-dim)]",
+              centered ? "min-h-28 text-base" : "min-h-[96px] max-h-[220px]",
             ].join(" ")}
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={(event) => {
@@ -700,8 +704,8 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
   }
 
   return (
-    <main className="chat-page-shell h-dvh overflow-hidden">
-      <section className="relative z-10 grid h-full min-h-0 lg:grid-cols-[296px_minmax(0,1fr)]">
+    <main className="chat-page-shell min-h-[100dvh] overflow-hidden lg:h-dvh">
+      <section className="relative z-10 grid h-full min-h-0 lg:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[308px_minmax(0,1fr)]">
         <aside className="chat-sidebar-shell order-2 flex min-h-0 flex-col border-t border-[color:rgba(255,255,255,0.06)] lg:order-1 lg:h-full lg:border-r lg:border-t-0">
           <div className="flex items-center justify-between border-b border-[color:rgba(255,255,255,0.08)] px-5 py-4">
             <div>
@@ -822,18 +826,18 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
           ) : null}
 
           {hasConversation ? (
-            <div className="border-b border-[color:rgba(67,57,47,0.08)] px-6 py-5">
-              <div className="relative z-10 flex flex-col gap-4">
+            <div className="border-b border-[color:rgba(67,57,47,0.08)] px-5 py-4 lg:px-6">
+              <div className="relative z-10 mx-auto flex w-full max-w-[1180px] flex-col gap-4">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div className="min-w-0">
                     <p className="eyebrow">Conversación</p>
                     <h1
-                      className="mt-2 text-[clamp(1.85rem,3vw,2.7rem)] font-semibold tracking-[-0.05em] text-[color:var(--text-strong)]"
+                      className="mt-2 text-[clamp(1.65rem,2.6vw,2.35rem)] font-semibold tracking-[-0.05em] text-[color:var(--text-strong)]"
                       style={{ fontFamily: "var(--font-heading), serif" }}
                     >
                       {headerTitle}
                     </h1>
-                    <p className="mt-3 max-w-2xl text-sm leading-7 text-[color:var(--text-soft)]">
+                    <p className="mt-2 max-w-3xl text-sm leading-6 text-[color:var(--text-soft)]">
                       {headerDetail}
                     </p>
                   </div>
@@ -843,7 +847,7 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
                   </span>
                 </div>
 
-                <div className="max-w-4xl">
+                <div className="w-full">
                   <ChatSettingsPanel
                     allowHypotheses={allowHypotheses}
                     allowWebResearch={allowWebResearch}
@@ -911,7 +915,7 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
             <div
               className={
                 hasConversation
-                  ? "mx-auto max-w-4xl space-y-6 px-6 py-8"
+                  ? "mx-auto w-full max-w-[1180px] space-y-7 px-5 py-7 lg:px-6"
                   : "mx-auto flex min-h-full w-full max-w-5xl items-center justify-center px-6 py-6"
               }
             >
@@ -926,18 +930,18 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
                       .findLast((item) => item.role === "user")?.text ?? activeSession.title;
 
                   return (
-                    <article key={turn.id}>
+                    <article className="w-full" key={turn.id}>
                       {turn.role === "user" ? (
-                        <div className="copilot-message-user ml-auto max-w-[76%] rounded-[28px] px-5 py-4">
+                        <div className="copilot-message-user ml-auto max-w-[min(84%,760px)] rounded-[28px] px-5 py-4">
                           <p className="text-sm leading-7 text-[color:#fff8f4]">
                             {turn.text}
                           </p>
                         </div>
                       ) : (
-                        <div className="copilot-message-assistant max-w-[92%] rounded-[30px] px-5 py-5 backdrop-blur">
+                        <div className="copilot-message-assistant w-full rounded-[32px] px-5 py-5 backdrop-blur sm:px-6 sm:py-6">
                           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                             <div>
-                              <p className="text-[11px] uppercase tracking-[0.18em] text-[color:rgba(255,240,232,0.56)]">
+                              <p className="text-[11px] uppercase tracking-[0.18em] text-[color:rgba(108,83,67,0.62)]">
                                 {assistantEyebrow(payload)}
                               </p>
                               <p className="mt-2 text-sm text-[color:var(--copilot-text-soft)]">
@@ -946,7 +950,7 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
                             </div>
 
                             {payload ? (
-                              <div className="flex flex-wrap gap-2">
+                              <div className="flex flex-wrap gap-2 sm:justify-end">
                                 <span
                                   className={`rounded-full border px-3 py-1 text-xs ${coverageChip(payload.confidence)}`}
                                 >
@@ -978,13 +982,13 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
                           </div>
 
                           {evidenceHighlights.length ? (
-                            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                            <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                               {evidenceHighlights.map((item) => (
                                 <div
-                                  className="rounded-[20px] border border-[color:rgba(255,255,255,0.08)] bg-[color:rgba(255,255,255,0.04)] p-3"
+                                  className="rounded-[20px] border border-[color:rgba(67,57,47,0.08)] bg-[color:rgba(255,255,255,0.58)] p-3"
                                   key={`${item.label}-${item.value}`}
                                 >
-                                  <p className="text-[11px] uppercase tracking-[0.16em] text-[color:rgba(255,240,232,0.46)]">
+                                  <p className="text-[11px] uppercase tracking-[0.16em] text-[color:rgba(108,83,67,0.54)]">
                                     {item.label}
                                   </p>
                                   <p className="mt-2 text-sm font-medium leading-6 text-[color:var(--copilot-text)]">
@@ -1018,8 +1022,8 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
                               className={[
                                 "mt-5 rounded-[20px] px-4 py-3 text-sm leading-6",
                                 payload.answer_mode === "deterministic_fallback"
-                                  ? "border border-[color:rgba(255,206,115,0.18)] bg-[color:rgba(255,206,115,0.08)] text-[color:#ffd98f]"
-                                  : "border border-[color:rgba(234,77,161,0.18)] bg-[color:rgba(234,77,161,0.08)] text-[color:#ffb9d8]",
+                                  ? "border border-[color:rgba(176,108,31,0.18)] bg-[color:rgba(255,206,115,0.14)] text-[color:#7c5117]"
+                                  : "border border-[color:rgba(166,63,116,0.18)] bg-[color:rgba(234,77,161,0.1)] text-[color:#7f3156]",
                               ].join(" ")}
                             >
                               <p className="text-sm font-medium">
@@ -1036,7 +1040,7 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
                           ) : null}
 
                           {payload?.hypotheses.length ? (
-                            <div className="mt-5 rounded-[20px] border border-[color:rgba(255,206,115,0.18)] bg-[color:rgba(255,206,115,0.08)] px-4 py-3 text-sm leading-6 text-[color:#ffd98f]">
+                            <div className="mt-5 rounded-[20px] border border-[color:rgba(176,108,31,0.18)] bg-[color:rgba(255,206,115,0.14)] px-4 py-3 text-sm leading-6 text-[color:#7c5117]">
                               <p className="text-sm font-medium">Hipótesis</p>
                               <div className="mt-2 space-y-2">
                                 {asArray(payload.hypotheses).map((item) => (
@@ -1045,13 +1049,13 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
                               </div>
                               {payload.web_research_used && asArray(payload.web_sources).length ? (
                                 <div className="mt-4 border-t border-[color:rgba(176,108,31,0.18)] pt-3">
-                                  <p className="text-[11px] uppercase tracking-[0.16em] text-[color:rgba(255,240,232,0.46)]">
+                                  <p className="text-[11px] uppercase tracking-[0.16em] text-[color:rgba(124,81,23,0.7)]">
                                     Fuentes externas
                                   </p>
                                   <div className="mt-2 space-y-2">
                                     {asArray(payload.web_sources).slice(0, 4).map((source) => (
                                       <a
-                                        className="block text-sm underline decoration-[color:rgba(255,206,115,0.42)] underline-offset-4 hover:text-[color:#fff7f2]"
+                                        className="block text-sm underline decoration-[color:rgba(176,108,31,0.34)] underline-offset-4 hover:text-[color:#5f3b12]"
                                         href={source.url}
                                         key={source.url}
                                         rel="noreferrer"
@@ -1068,7 +1072,7 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
 
                           {payload?.follow_up_questions.length ? (
                             <div className="mt-5">
-                              <p className="text-[11px] uppercase tracking-[0.16em] text-[color:rgba(255,240,232,0.46)]">
+                              <p className="text-[11px] uppercase tracking-[0.16em] text-[color:rgba(108,83,67,0.54)]">
                                 Siguiente paso
                               </p>
                               <div className="mt-3 flex flex-wrap gap-2">
@@ -1087,21 +1091,21 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
                           ) : null}
 
                           {payload ? (
-                            <details className="mt-5 rounded-[22px] border border-[color:rgba(255,255,255,0.08)] bg-[color:rgba(255,255,255,0.04)] px-4 py-3">
+                            <details className="mt-5 rounded-[22px] border border-[color:rgba(67,57,47,0.08)] bg-[color:rgba(255,255,255,0.58)] px-4 py-3">
                               <summary className="cursor-pointer list-none text-sm font-medium text-[color:var(--copilot-text)]">
                                 Detrás de esta respuesta
                               </summary>
 
                               <div className="mt-4 space-y-4 text-sm text-[color:var(--copilot-text-soft)]">
                                 {asArray(payload.analysis_steps).length ? (
-                                  <div className="rounded-[18px] border border-[color:rgba(255,255,255,0.08)] bg-[color:rgba(255,255,255,0.04)] px-4 py-3">
+                                  <div className="rounded-[18px] border border-[color:rgba(67,57,47,0.08)] bg-[color:rgba(255,255,255,0.46)] px-4 py-3">
                                     <p className="text-sm font-medium text-[color:var(--copilot-text)]">
                                       Qué revisó el asistente
                                     </p>
                                     <div className="mt-3 space-y-2 text-sm leading-6">
                                       {asArray(payload.analysis_steps).map((item) => (
                                         <div className="flex gap-3" key={item}>
-                                          <span className="pt-[2px] text-[color:rgba(255,240,232,0.42)]">
+                                          <span className="pt-[2px] text-[color:rgba(108,83,67,0.52)]">
                                             •
                                           </span>
                                           <span>{item}</span>
@@ -1114,14 +1118,14 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
                                 <div className="grid gap-3 sm:grid-cols-2">
                                   {asArray(payload.evidence).map((item) => (
                                     <div
-                                      className="rounded-[18px] border border-[color:rgba(255,255,255,0.08)] bg-[color:rgba(255,255,255,0.04)] px-4 py-3"
+                                      className="rounded-[18px] border border-[color:rgba(67,57,47,0.08)] bg-[color:rgba(255,255,255,0.46)] px-4 py-3"
                                       key={`${item.label}-${item.value}-detail`}
                                     >
                                       <p className="text-sm font-medium text-[color:var(--copilot-text)]">
                                         {item.label}
                                       </p>
                                       <p className="mt-1 leading-6">{item.value}</p>
-                                      <p className="mt-2 text-[11px] uppercase tracking-[0.16em] text-[color:rgba(255,240,232,0.46)]">
+                                      <p className="mt-2 text-[11px] uppercase tracking-[0.16em] text-[color:rgba(108,83,67,0.54)]">
                                         {sourceLabel(item.source)}
                                       </p>
                                     </div>
@@ -1139,11 +1143,11 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
                                   ))}
                                 </div>
 
-                                <p className="text-xs leading-6 text-[color:rgba(255,240,232,0.42)]">
+                                <p className="text-xs leading-6 text-[color:rgba(108,83,67,0.6)]">
                                   {payload.reasoning_scope}
                                 </p>
 
-                                <p className="text-xs leading-6 text-[color:rgba(255,240,232,0.42)]">
+                                <p className="text-xs leading-6 text-[color:rgba(108,83,67,0.6)]">
                                   {payload.disclaimer}
                                 </p>
                               </div>
@@ -1296,8 +1300,8 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
           </div>
 
           {hasConversation ? (
-            <div className="border-t border-[color:rgba(67,57,47,0.08)] px-4 py-4 sm:px-6">
-              {renderComposer()}
+            <div className="border-t border-[color:rgba(67,57,47,0.08)] px-4 py-4 sm:px-5 lg:px-6">
+              <div className="mx-auto w-full max-w-[1180px]">{renderComposer()}</div>
             </div>
           ) : null}
         </section>

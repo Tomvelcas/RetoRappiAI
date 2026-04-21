@@ -39,7 +39,7 @@ function CompactModeSwitch({
   return (
     <button
       className={[
-        "group inline-flex min-h-14 min-w-[152px] items-center justify-between gap-4 rounded-[20px] border px-4 py-3 text-left transition",
+        "group inline-flex min-h-[68px] w-full items-center justify-between gap-4 rounded-[18px] border px-4 py-3 text-left transition",
         disabled
           ? "cursor-not-allowed border-[color:rgba(67,57,47,0.08)] bg-[color:rgba(255,255,255,0.48)] text-[color:rgba(67,58,49,0.42)]"
           : active
@@ -52,10 +52,10 @@ function CompactModeSwitch({
       aria-checked={active}
       type="button"
     >
-      <span className="min-w-0">
-        <span className="block text-sm font-medium leading-5">{label}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[0.95rem] font-medium leading-5">{label}</span>
         {caption ? (
-          <span className="mt-1 block text-[11px] uppercase tracking-[0.16em] text-[color:rgba(67,58,49,0.46)]">
+          <span className="mt-1 block text-[10px] uppercase tracking-[0.18em] text-[color:rgba(67,58,49,0.46)]">
             {caption}
           </span>
         ) : null}
@@ -99,10 +99,10 @@ export function ChatSettingsPanel({
 }: ChatSettingsPanelProps) {
   if (compact) {
     return (
-      <section className="chat-inline-controls px-4 py-4">
+      <section className="chat-inline-controls px-3 py-3 sm:px-4 sm:py-4">
         <div className="relative z-10">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="min-w-0">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <span className="inline-flex items-center gap-2 rounded-full border border-[color:rgba(67,57,47,0.08)] bg-[color:rgba(255,255,255,0.78)] px-3 py-1.5 text-[11px] uppercase tracking-[0.18em] text-[color:rgba(67,58,49,0.7)]">
                   <span className="copilot-brand-mark" />
@@ -113,33 +113,12 @@ export function ChatSettingsPanel({
                   side="right"
                 />
               </div>
-
-              <div className="mt-3 flex flex-wrap gap-3">
-                <CompactModeSwitch
-                  active={useLlm && llmReady}
-                  caption="pulir"
-                  disabled={!llmReady}
-                  label="Redacción"
-                  onClick={() => onUseLlmChange(!(useLlm && llmReady))}
-                />
-                <CompactModeSwitch
-                  active={allowHypotheses && llmReady}
-                  caption="explorar"
-                  disabled={!llmReady}
-                  label="Hipótesis"
-                  onClick={() => onAllowHypothesesChange(!(allowHypotheses && llmReady))}
-                />
-                <CompactModeSwitch
-                  active={allowWebResearch && llmReady}
-                  caption="contrastar"
-                  disabled={!llmReady || !allowHypotheses}
-                  label="Web"
-                  onClick={() => onAllowWebResearchChange(!(allowWebResearch && llmReady))}
-                />
-              </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-[color:rgba(67,57,47,0.08)] bg-[color:rgba(255,255,255,0.72)] px-3 py-2 text-[11px] uppercase tracking-[0.16em] text-[color:rgba(67,58,49,0.62)]">
+                {pinnedCount} fijados
+              </span>
               <Link
                 className="rounded-full border border-[color:rgba(67,57,47,0.08)] bg-[color:rgba(255,255,255,0.74)] px-3 py-2 text-xs font-medium text-[color:rgba(42,20,8,0.82)] transition hover:border-[color:rgba(255,122,31,0.18)]"
                 href="/dashboard"
@@ -149,7 +128,31 @@ export function ChatSettingsPanel({
             </div>
           </div>
 
-          <details className="mt-4 rounded-[20px] border border-[color:rgba(67,57,47,0.08)] bg-[color:rgba(255,255,255,0.68)] px-4 py-3">
+          <div className="mt-3 grid gap-3 lg:grid-cols-3">
+            <CompactModeSwitch
+              active={useLlm && llmReady}
+              caption="pulir"
+              disabled={!llmReady}
+              label="Redacción"
+              onClick={() => onUseLlmChange(!(useLlm && llmReady))}
+            />
+            <CompactModeSwitch
+              active={allowHypotheses && llmReady}
+              caption="explorar"
+              disabled={!llmReady}
+              label="Hipótesis"
+              onClick={() => onAllowHypothesesChange(!(allowHypotheses && llmReady))}
+            />
+            <CompactModeSwitch
+              active={allowWebResearch && llmReady}
+              caption="contrastar"
+              disabled={!llmReady || !allowHypotheses}
+              label="Web"
+              onClick={() => onAllowWebResearchChange(!(allowWebResearch && llmReady))}
+            />
+          </div>
+
+          <details className="mt-3 rounded-[18px] border border-[color:rgba(67,57,47,0.08)] bg-[color:rgba(255,255,255,0.7)] px-4 py-3">
             <summary className="cursor-pointer list-none text-sm font-medium text-[color:var(--text-strong)]">
               Añadir contexto
             </summary>
@@ -157,7 +160,7 @@ export function ChatSettingsPanel({
               Úselo para promos, incidentes internos o señales externas conocidas por su equipo.
             </p>
             <textarea
-              className="glass-scroll mt-3 min-h-24 w-full resize-none rounded-[18px] border border-[color:rgba(67,57,47,0.08)] bg-[color:rgba(255,255,255,0.84)] px-3 py-3 text-sm leading-7 text-[color:var(--text-strong)] outline-none placeholder:text-[color:var(--text-dim)]"
+              className="glass-scroll mt-3 min-h-20 w-full resize-none rounded-[16px] border border-[color:rgba(67,57,47,0.08)] bg-[color:rgba(255,255,255,0.84)] px-3 py-3 text-sm leading-7 text-[color:var(--text-strong)] outline-none placeholder:text-[color:var(--text-dim)]"
               onChange={(event) => onExternalContextChange(event.target.value)}
               placeholder="Ej: Hubo una promo masiva o reportes internos de latencia."
               value={externalContext}
@@ -165,7 +168,7 @@ export function ChatSettingsPanel({
           </details>
 
           {notice ? (
-            <div className="mt-4 rounded-[18px] border border-[color:rgba(176,108,31,0.18)] bg-[color:rgba(176,108,31,0.08)] px-4 py-3 text-sm leading-6 text-[color:var(--signal-amber)]">
+            <div className="mt-3 rounded-[18px] border border-[color:rgba(176,108,31,0.18)] bg-[color:rgba(176,108,31,0.08)] px-4 py-3 text-sm leading-6 text-[color:var(--signal-amber)]">
               {notice}
             </div>
           ) : null}

@@ -1037,10 +1037,14 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 .chat-main-shell {
   position: relative;
+  min-width: 0;
   overflow: visible;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.6), rgba(249, 244, 238, 0.78)),
     linear-gradient(135deg, rgba(255, 214, 186, 0.06), rgba(255, 255, 255, 0.1));
+  --copilot-text: #201712;
+  --copilot-text-soft: rgba(78, 64, 54, 0.74);
+  --copilot-border: rgba(67, 57, 47, 0.1);
 }
 
 .chat-main-shell::before,
@@ -1128,7 +1132,6 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 .chat-empty-emblem {
-  position: relative;
   display: grid;
   place-items: center;
   width: 72px;
@@ -1203,8 +1206,10 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 .chat-page-shell .copilot-message-assistant {
   border-color: rgba(67, 57, 47, 0.08);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.74), rgba(248, 244, 239, 0.64));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.74);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(248, 244, 239, 0.84));
+  box-shadow:
+    0 22px 50px rgba(35, 29, 24, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
 .landing-shell {

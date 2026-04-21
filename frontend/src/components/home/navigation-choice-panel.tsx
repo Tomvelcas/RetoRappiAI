@@ -82,7 +82,7 @@ function ChoiceCard({
         aria-hidden="true"
         className="absolute inset-0 opacity-100"
         style={{
-          background: `radial-gradient(circle at 18% 16%, ${route.accent}, transparent 42%), radial-gradient(circle at 80% 82%, rgba(255,255,255,0.08), transparent 26%), linear-gradient(140deg, rgba(255,255,255,0.06), transparent 42%)`,
+          background: `radial-gradient(circle at 18% 16%, ${route.accent}, transparent 42%), radial-gradient(circle at 80% 82%, rgba(255,255,255,0.11), transparent 26%), linear-gradient(140deg, rgba(255,255,255,0.08), transparent 42%)`,
         }}
       />
       <div
@@ -94,9 +94,9 @@ function ChoiceCard({
       />
       <div
         aria-hidden="true"
-        className="absolute inset-x-4 bottom-3 h-[4.5rem] rounded-[30px] border border-white/8 bg-[linear-gradient(180deg,rgba(64,26,11,0.22),rgba(31,13,8,0.44))]"
+        className="absolute inset-x-4 bottom-3 h-[4.5rem] rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(79,33,15,0.24),rgba(36,16,10,0.46))]"
         style={{
-          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08)",
+          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.1)",
         }}
       />
       <div
@@ -108,11 +108,11 @@ function ChoiceCard({
 
       <div className="relative z-10 flex h-full max-w-[50%] flex-col justify-between gap-10 sm:max-w-[52%]">
         <div className="space-y-5">
-          <span className="inline-flex rounded-full border border-white/14 bg-white/8 px-3 py-1 text-[10px] uppercase tracking-[0.28em] text-white/60">
+          <span className="inline-flex rounded-full border border-white/18 bg-white/12 px-3 py-1 text-[10px] uppercase tracking-[0.28em] text-white/76 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]">
             {route.tone}
           </span>
           <h2
-            className="max-w-[7ch] text-[clamp(2.85rem,4.8vw,5rem)] font-semibold tracking-[-0.065em] text-white"
+            className="max-w-[7ch] text-[clamp(2.85rem,4.8vw,5rem)] font-semibold tracking-[-0.065em] text-white drop-shadow-[0_10px_24px_rgba(0,0,0,0.34)]"
             style={{ fontFamily: "var(--font-heading), serif" }}
           >
             {route.label}
@@ -120,14 +120,14 @@ function ChoiceCard({
         </div>
 
         <div className="flex items-end justify-between gap-6">
-          <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]">
+          <div className="rounded-[28px] border border-white/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.1),rgba(255,255,255,0.04))] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]">
             <div className="flex gap-2">
-              <span className="size-2 rounded-full bg-white/75" />
-              <span className="size-2 rounded-full bg-white/28" />
-              <span className="size-2 rounded-full bg-white/16" />
+              <span className="size-2 rounded-full bg-white/88" />
+              <span className="size-2 rounded-full bg-white/42" />
+              <span className="size-2 rounded-full bg-white/26" />
             </div>
           </div>
-          <span className="flex size-12 shrink-0 items-center justify-center rounded-full border border-white/14 bg-[linear-gradient(180deg,rgba(255,255,255,0.22),rgba(255,255,255,0.04))] text-white shadow-[0_18px_30px_rgba(0,0,0,0.24),inset_0_1px_0_rgba(255,255,255,0.22)] transition duration-500 group-hover:translate-x-1 group-hover:-translate-y-0.5">
+          <span className="flex size-12 shrink-0 items-center justify-center rounded-full border border-white/22 bg-[linear-gradient(180deg,rgba(255,255,255,0.34),rgba(255,255,255,0.08))] text-white shadow-[0_18px_30px_rgba(0,0,0,0.26),inset_0_1px_0_rgba(255,255,255,0.28),0_0_18px_rgba(255,190,158,0.12)] transition duration-500 group-hover:translate-x-1 group-hover:-translate-y-0.5 group-hover:shadow-[0_22px_36px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.34),0_0_22px_rgba(255,200,170,0.22)]">
             <ArrowIcon />
           </span>
         </div>
