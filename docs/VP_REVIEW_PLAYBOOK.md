@@ -839,23 +839,7 @@ Eso hace posible explicar no solo qué se hizo, sino por qué se hizo así.
 
 ## 15. Cierre
 
-## 15.1 Secuencia recomendada de presentación
-
-Si tuviera que presentar la solución en 5 a 7 minutos, esta es la secuencia correcta:
-
-1. explicar que el objetivo no era solo construir una app, sino construirla fiel al dato,
-2. mostrar que el dataset no soportaba una lectura por tienda,
-3. contar cómo notebooks y `data/processed/` redefinieron el producto,
-4. enseñar el dashboard y remarcar calidad del dato,
-5. enseñar el chatbot grounded y sus guardrails,
-6. mostrar el flujo `chat -> widget fijado en dashboard`,
-7. cerrar con calidad de código, CI, seguridad y futuras iteraciones.
-
-Mensaje rector:
-
-> la solución no intenta impresionar por complejidad artificial; intenta demostrar criterio, control y producto real.
-
-La fortaleza del proyecto no está en “usar muchas herramientas de AI”.
+El objetivo no era solo construir una app, sino construirla fiel al dato,la solución no intenta impresionar por complejidad artificial; intenta demostrar criterio, control y producto real. La fortaleza del proyecto no está en “usé muchas herramientas de AI”,
 
 Está en haber usado AI con criterio:
 
@@ -866,5 +850,3 @@ Está en haber usado AI con criterio:
 - pero sin ceder la verdad del sistema a una capa generativa.
 
 Ese es el mensaje que mejor representa la solución:
-
-> no se construyó una demo apoyada en AI; se construyó un sistema donde AI y software clásico conviven con roles claros.
