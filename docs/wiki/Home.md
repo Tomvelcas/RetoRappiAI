@@ -1,31 +1,24 @@
 # Wiki
 
-Esta wiki documenta la solucion de punta a punta del proyecto `ai-powered-dashboard`.
+Esta wiki es un espejo corto para GitHub Wiki.  
+La ruta canónica de lectura sigue siendo:
 
-Objetivos:
+1. `README.md`
+2. `docs/VP_REVIEW_PLAYBOOK.md`
+3. `docs/CHATBOT_GUIDE.md`
+4. `docs/QUALITY_AND_SECURITY.md`
 
-- explicar que se construyo realmente,
-- dejar claro el alcance tecnico y analitico,
-- facilitar mantenimiento, demo y evolucion del repositorio,
-- evitar que la narrativa del proyecto se separe de lo que el codigo soporta hoy.
-
-## Paginas recomendadas
+## Qué encontrará aquí
 
 - [Documentacion Solucion](Documentacion-Solucion)
 - [Documentacion Dashboard](Documentacion-Dashboard)
 - [Documentacion AI](Documentacion-AI)
 - [Gobernanza del Repositorio](Gobernanza-del-Repositorio)
 
-## Lectura rapida
+## Lectura recomendada en la wiki
 
-Este proyecto implementa:
+1. [Documentacion Solucion](Documentacion-Solucion)
+2. [Documentacion AI](Documentacion-AI)
+3. [Documentacion Dashboard](Documentacion-Dashboard)
 
-- un backend en FastAPI con analitica deterministica sobre `data/processed/`,
-- un frontend en Next.js con dashboard interactivo y chat,
-- un chatbot semanticamente guiado, grounded sobre metrica agregada,
-- dockerizacion para ejecucion local reproducible,
-- CI con lint, tests, type-check, build, smoke tests y escaneo opcional con SonarQube Cloud.
-
-## Principio rector
-
-La verdad numerica vive en la capa analitica deterministica. El LLM solo interpreta, redacta y amplifica una evidencia que ya fue calculada y validada fuera del modelo.
+`Gobernanza del Repositorio` es complementaria y solo hace falta si quiere revisar permisos, wiki pública, Sonar o branch protection.
