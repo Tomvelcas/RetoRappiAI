@@ -99,36 +99,68 @@ Si falla la llamada al proveedor:
 
 ## 8. Preguntas buenas para probar el chatbot
 
+Regla rapida:
+
+- deje `Hipotesis` y `Web` apagados por defecto,
+- active `Hipotesis` si quiere causas tentativas,
+- active `Web` solo si quiere clima, eventos o contexto externo.
+
 ### Lectura base
 
-- `¿Que paso el 2026-02-10?`
-- `How is the signal behaving overall?`
+| Pregunta | Hipotesis | Web |
+| --- | --- | --- |
+| `¿Que paso el 2026-02-10?` | No | No |
+| `¿Que dias tuvieron la menor cobertura?` | No | No |
+| `¿Que dia tuvo la mayor cobertura dentro del rango activo?` | No | No |
 
 ### Comparacion
 
-- `Compare 2026-02-10 vs 2026-02-11.`
-- `Entregueme conclusiones claras sobre como se comporta entre semana vs fines de semana la cobertura.`
+| Pregunta | Hipotesis | Web |
+| --- | --- | --- |
+| `Compáreme 2026-02-10 vs 2026-02-11.` | No | No |
+| `Entregueme conclusiones claras sobre como se comporta entre semana vs fines de semana la cobertura.` | No | No |
+| `Cree un reporte detallado de como fue fluctuando la cobertura en fines de semana.` | No | No |
 
 ### Horario
 
-- `¿Que horas suelen ser mas altas?`
-- `¿Cual fue la hora con menor cobertura el 11 de febrero?`
+| Pregunta | Hipotesis | Web |
+| --- | --- | --- |
+| `¿Que horas suelen ser mas altas?` | No | No |
+| `¿Cual fue la hora con menor cobertura el 11 de febrero?` | No | No |
+| `Revise si la hora mas baja coincide con anomalias del rango.` | No | No |
 
 ### Calidad y anomalias
 
-- `How complete is the dataset between 2026-02-10 and 2026-02-10?`
-- `Revise las anomalias horarias del rango.`
+| Pregunta | Hipotesis | Web |
+| --- | --- | --- |
+| `¿Que tan completo esta el dataset entre 2026-02-10 y 2026-02-10?` | No | No |
+| `Revise las anomalias horarias del rango.` | No | No |
+| `¿La anomalia mas fuerte del rango coincide con baja cobertura?` | No | No |
 
 ### Grafico + tablero
 
-- `Genereme un grafico de barras para mostrar como se comportan los horarios a lo largo del mes de febrero y su cobertura.`
-- `Podria entregarme un grafico que compare la cobertura total de todos los dias que tenemos en febrero.`
+| Pregunta | Hipotesis | Web |
+| --- | --- | --- |
+| `Genereme un grafico de barras para mostrar como se comportan los horarios a lo largo del mes de febrero y su cobertura.` | No | No |
+| `Podria entregarme un grafico que compare la cobertura total de todos los dias que tenemos en febrero.` | No | No |
+| `¿Podria generarme ahora una grafica que compare el dia de menor cobertura con el promedio de los demas? Asi puedo saber que tan desfasados estan los datos.` | No | No |
+| `¿Podria generarme ahora una grafica que compare el dia de mayor cobertura con el promedio de los demas?` | No | No |
+
+### Hipotesis y contexto externo
+
+| Pregunta | Hipotesis | Web |
+| --- | --- | --- |
+| `El 11 de febrero es el dia con menor cobertura. ¿Podria revisar y darme posibles razones externas a los datos de por que ese dia en Latinoamerica la cobertura fue baja? ¿Podriamos ver si llovio y si esa puede ser una buena razon?` | Si | Si |
+| `¿Podria darme hipotesis tentativas de por que la cobertura cae mas en fines de semana?` | Si | No |
 
 ### Limites
 
-- `Which store had the worst availability?`
+| Pregunta | Hipotesis | Web |
+| --- | --- | --- |
+| `¿Que tienda tiene la peor disponibilidad?` | No | No |
+| `¿Que merchant o ciudad explica la caida del 11 de febrero?` | No | No |
 
-Esta ultima sirve para demostrar que el sistema se niega a inventar granularidad inexistente.
+Las dos ultimas sirven para demostrar que el sistema se niega a inventar granularidad inexistente.
 
 ## 9. Como explicar el valor AI en demo
 

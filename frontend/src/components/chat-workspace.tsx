@@ -4,17 +4,12 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import { ChatArtifactView } from "@/components/chat-artifact";
-import { ChatSettingsPanel } from "@/components/chat-settings-panel";
 import { ChatThinkingCore } from "@/components/chat-thinking-core";
 import { DashboardStaggeredMenu } from "@/components/dashboard-staggered-menu";
 import { LandingParticleField } from "@/components/effects/landing-particle-field";
 import type { BackendHealth, ChatQueryResponse } from "@/lib/api";
 import { getBackendHealth, queryChat } from "@/lib/api";
-import {
-  DASHBOARD_WIDGETS_EVENT,
-  loadPinnedWidgets,
-  pinArtifactWidget,
-} from "@/lib/dashboard-store";
+import { pinArtifactWidget } from "@/lib/dashboard-store";
 import {
   clearChatSessionsStorage,
   createBlankSession,
@@ -189,6 +184,88 @@ function pinSuccessCopy(kind: "artifact" | "note"): string {
     : "Nota fijada en el tablero.";
 }
 
+function composerModeTone(active: boolean, disabled = false): string {
+  if (disabled) {
+    return "border-[color:rgba(67,57,47,0.08)] bg-[color:rgba(255,255,255,0.44)] text-[color:rgba(67,58,49,0.38)]";
+  }
+
+  if (active) {
+    return "border-[color:rgba(255,122,31,0.24)] bg-[linear-gradient(135deg,rgba(255,122,31,0.14),rgba(255,255,255,0.9))] text-[color:#2a1408] shadow-[0_10px_20px_rgba(255,122,31,0.08)]";
+  }
+
+  return "border-[color:rgba(67,57,47,0.08)] bg-[color:rgba(255,255,255,0.62)] text-[color:rgba(67,58,49,0.7)] hover:border-[color:rgba(255,122,31,0.18)] hover:text-[color:#2a1408]";
+}
+
+function composerSwitchTrack(active: boolean, disabled = false): string {
+  if (disabled) {
+    return "border-[color:rgba(67,57,47,0.08)] bg-[color:rgba(67,57,47,0.08)]";
+  }
+
+  if (active) {
+    return "border-[color:rgba(255,122,31,0.28)] bg-[linear-gradient(135deg,rgba(255,122,31,0.42),rgba(255,190,144,0.76))]";
+  }
+
+  return "border-[color:rgba(67,57,47,0.08)] bg-[color:rgba(67,57,47,0.08)]";
+}
+
+function composerSwitchThumb(active: boolean, disabled = false): string {
+  if (disabled) {
+    return "left-[2px] bg-[color:rgba(255,255,255,0.88)]";
+  }
+
+  return active
+    ? "left-[17px] bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(255,231,214,0.92))]"
+    : "left-[2px] bg-[color:#fff9f4]";
+}
+
+function ComposerModeToggle({
+  active,
+  caption,
+  description,
+  disabled = false,
+  label,
+  onClick,
+}: Readonly<{
+  active: boolean;
+  caption: string;
+  description: string;
+  disabled?: boolean;
+  label: string;
+  onClick: () => void;
+}>) {
+  return (
+    <div className="group relative overflow-visible">
+      <button
+        className={`inline-flex min-h-[40px] items-center gap-3 rounded-full border px-3 py-1.5 text-left transition ${composerModeTone(active, disabled)}`}
+        disabled={disabled}
+        onClick={onClick}
+        role="switch"
+        aria-checked={active}
+        aria-label={`${label}: ${description}`}
+        type="button"
+      >
+        <span className="min-w-0">
+          <span className="block text-[11px] font-medium leading-4">{label}</span>
+          <span className="block text-[8.5px] uppercase tracking-[0.16em] text-[color:rgba(67,58,49,0.48)]">
+            {caption}
+          </span>
+        </span>
+        <span
+          className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border transition ${composerSwitchTrack(active, disabled)}`}
+        >
+          <span
+            className={`absolute top-[2px] inline-flex size-4 rounded-full shadow-[0_8px_18px_rgba(18,14,10,0.18)] transition-all duration-300 ${composerSwitchThumb(active, disabled)}`}
+          />
+        </span>
+      </button>
+
+      <span className="pointer-events-none absolute left-1/2 top-full z-30 mt-1.5 w-44 -translate-x-1/2 rounded-[12px] border border-[color:rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(41,28,36,0.98),rgba(18,12,18,0.96))] px-2.5 py-2 text-[10px] leading-4 text-[color:#f7f2ea] opacity-0 shadow-[0_14px_26px_rgba(16,14,11,0.2)] transition duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
+        {description}
+      </span>
+    </div>
+  );
+}
+
 function presenceTitle(isSubmitting: boolean, activeSession: StoredChatSession | null): string {
   if (isSubmitting) {
     return "Analizando";
@@ -269,11 +346,11 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
   const [allowWebResearch, setAllowWebResearch] = useState(false);
   const [externalContext, setExternalContext] = useState("");
   const [backendHealth, setBackendHealth] = useState<BackendHealth | null>(null);
-  const [pinnedCount, setPinnedCount] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [greetingFaceIndex, setGreetingFaceIndex] = useState(0);
+  const [showInlineContext, setShowInlineContext] = useState(false);
   const autoPromptRan = useRef(false);
   const endRef = useRef<HTMLDivElement | null>(null);
   const llmToggleTouched = useRef(false);
@@ -289,22 +366,6 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
     const blank = createBlankSession();
     setSessions([blank]);
     setActiveSessionId(blank.id);
-  }, []);
-
-  useEffect(() => {
-    setPinnedCount(loadPinnedWidgets().length);
-
-    function syncPinnedCount() {
-      setPinnedCount(loadPinnedWidgets().length);
-    }
-
-    globalThis.addEventListener(DASHBOARD_WIDGETS_EVENT, syncPinnedCount);
-    globalThis.addEventListener("storage", syncPinnedCount);
-
-    return () => {
-      globalThis.removeEventListener(DASHBOARD_WIDGETS_EVENT, syncPinnedCount);
-      globalThis.removeEventListener("storage", syncPinnedCount);
-    };
   }, []);
 
   useEffect(() => {
@@ -398,6 +459,8 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
   const headerDetail = hasConversation
     ? heroDetail
     : "Un solo espacio para preguntar, comparar y fijar piezas en el tablero.";
+  const displayHeaderTitle =
+    headerTitle.length > 64 ? `${headerTitle.slice(0, 61).trimEnd()}…` : headerTitle;
   const welcomeTitle = greetingLabel();
   const showWelcomeHero = !hasConversation && !hasDraft && !isSubmitting;
   const showCompanionOrb = hasConversation || hasDraft || isSubmitting;
@@ -493,6 +556,37 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
     setStatusMessage(null);
   }
 
+  function handleAllowHypothesesChange(value: boolean) {
+    llmToggleTouched.current = true;
+    setAllowHypotheses(value);
+    if (value && !useLlm) {
+      setUseLlm(true);
+    }
+    if (!value) {
+      setAllowWebResearch(false);
+    }
+  }
+
+  function handleAllowWebResearchChange(value: boolean) {
+    llmToggleTouched.current = true;
+    setAllowWebResearch(value);
+    if (value && !useLlm) {
+      setUseLlm(true);
+    }
+    if (value && !allowHypotheses) {
+      setAllowHypotheses(true);
+    }
+  }
+
+  function handleUseLlmChange(value: boolean) {
+    llmToggleTouched.current = true;
+    setUseLlm(value);
+    if (!value) {
+      setAllowHypotheses(false);
+      setAllowWebResearch(false);
+    }
+  }
+
   async function sendQuestion(question: string) {
     const trimmed = question.trim();
     if (!trimmed || !activeSession) {
@@ -580,7 +674,6 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
       sourceQuestion,
       title: `${assistantEyebrow(payload)} · ${sourceQuestion.slice(0, 28)}`,
     });
-    setPinnedCount(loadPinnedWidgets().length);
     setStatusMessage(pinSuccessCopy("note"));
   }
 
@@ -597,52 +690,96 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
       sourceQuestion,
       title: artifact?.title,
     });
-    setPinnedCount(loadPinnedWidgets().length);
     setStatusMessage(pinSuccessCopy("artifact"));
   }
 
   function renderComposer({ centered = false }: Readonly<{ centered?: boolean }> = {}) {
     const sendDisabled = isSubmitting || !draft.trim() || !activeSession;
+    const contextOpen = showInlineContext || externalContext.trim().length > 0;
 
     return (
       <div
         className={
-          centered ? "mx-auto w-full max-w-[760px]" : "mx-auto w-full max-w-[1180px]"
+          centered ? "mx-auto w-full max-w-[920px]" : "mx-auto w-full max-w-[1440px]"
         }
       >
-        {!centered ? (
-          <div className="flex flex-wrap gap-2">
-            {followUps.slice(0, 3).map((prompt) => (
-              <button
-                className="chat-kicker-chip rounded-full px-3 py-2 text-xs transition hover:text-[color:var(--text-strong)]"
-                key={prompt}
-                onClick={() => setDraft(prompt)}
-                type="button"
-              >
-                {prompt}
-              </button>
-            ))}
-          </div>
-        ) : null}
-
         <div
           className={[
             "chat-composer-shell",
             centered
               ? [
-                  "rounded-[28px] px-5 py-4 transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                  "rounded-[26px] px-4 py-3.5 transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]",
                   hasDraft
                     ? "translate-y-[-4px] shadow-[0_34px_74px_rgba(255,122,31,0.12),inset_0_1px_0_rgba(255,255,255,0.9)]"
                     : "",
                 ].join(" ")
-              : "mt-3 rounded-[26px] px-4 py-3",
+              : "mt-2 rounded-[24px] px-3.5 py-3 sm:px-4 sm:py-3.5",
           ].join(" ")}
         >
-          <div className="mb-3 h-px w-full bg-[linear-gradient(90deg,transparent,rgba(255,143,107,0.72),rgba(255,183,142,0.82),transparent)]" />
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[10px] uppercase tracking-[0.16em] text-[color:var(--text-dim)]">
+              Modos
+            </span>
+            <ComposerModeToggle
+              active={useLlm && llmReady}
+              caption="Pulir"
+              description="Mejora la claridad, el tono y la presentación de la respuesta sin cambiar la base del dato."
+              disabled={!llmReady}
+              label="Redacción"
+              onClick={() => handleUseLlmChange(!(useLlm && llmReady))}
+            />
+            <ComposerModeToggle
+              active={allowHypotheses && llmReady}
+              caption="Explorar"
+              description="Propone posibles explicaciones tentativas, separadas de los hechos observados en el dataset."
+              disabled={!llmReady}
+              label="Hipótesis"
+              onClick={() => handleAllowHypothesesChange(!(allowHypotheses && llmReady))}
+            />
+            <ComposerModeToggle
+              active={allowWebResearch && llmReady}
+              caption="Contrastar"
+              description="Añade contexto externo para contrastar la lectura, pero no reemplaza ni confirma por sí solo el dato interno."
+              disabled={!llmReady || !allowHypotheses}
+              label="Web"
+              onClick={() => handleAllowWebResearchChange(!(allowWebResearch && llmReady))}
+            />
+            <button
+              className={`rounded-full border px-3 py-1.5 text-[11px] font-medium transition ${composerModeTone(contextOpen)}`}
+              onClick={() => setShowInlineContext((current) => !current)}
+              aria-label="Contexto: añade información conocida por su equipo, como promociones o incidentes, para orientar la respuesta."
+              type="button"
+            >
+              Contexto
+            </button>
+          </div>
+
+          {contextOpen ? (
+            <div className="mt-2.5 rounded-[16px] border border-[color:rgba(67,57,47,0.08)] bg-[color:rgba(255,255,255,0.56)] px-3 py-2.5">
+              <p className="text-[11px] text-[color:var(--text-soft)]">
+                Añada promos, incidentes internos o señales externas conocidas por su equipo.
+              </p>
+              <textarea
+                className="glass-scroll mt-2 min-h-14 w-full resize-none bg-transparent text-[12px] leading-5 text-[color:var(--text-strong)] outline-none placeholder:text-[color:var(--text-dim)]"
+                onChange={(event) => setExternalContext(event.target.value)}
+                placeholder="Ej: Hubo una promo masiva o reportes internos de latencia."
+                value={externalContext}
+              />
+            </div>
+          ) : null}
+
+          {notice ? (
+            <div className="mt-2.5 rounded-[16px] border border-[color:rgba(176,108,31,0.18)] bg-[color:rgba(176,108,31,0.08)] px-3 py-2 text-[12px] leading-5 text-[color:var(--signal-amber)]">
+              {notice}
+            </div>
+          ) : null}
+
           <textarea
             className={[
-              "glass-scroll w-full resize-none overflow-y-auto bg-transparent text-sm leading-7 text-[color:var(--text-strong)] outline-none placeholder:text-[color:var(--text-dim)]",
-              centered ? "min-h-28 text-base" : "min-h-[96px] max-h-[220px]",
+              "glass-scroll mt-2.5 w-full resize-none overflow-y-auto bg-transparent text-[13px] text-[color:var(--text-strong)] outline-none placeholder:text-[color:var(--text-dim)]",
+              centered
+                ? "min-h-20 max-h-[144px] text-[14px] leading-6"
+                : "min-h-[58px] max-h-[132px] leading-6",
             ].join(" ")}
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={(event) => {
@@ -657,19 +794,19 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
             value={draft}
           />
 
-          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--text-dim)]">
+          <div className="mt-2.5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-[10px] uppercase tracking-[0.15em] text-[color:var(--text-dim)]">
               Enter para enviar · Shift + Enter para salto
             </p>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2.5">
               {isSubmitting ? (
-                <span className="copilot-pill rounded-full px-3 py-2 text-xs uppercase tracking-[0.18em]">
+                <span className="copilot-pill rounded-full px-3 py-1.5 text-[10px] uppercase tracking-[0.16em]">
                   análisis activo
                 </span>
               ) : null}
               <button
-                className="copilot-gradient-button rounded-full px-4 py-3 text-sm font-medium text-[color:#fff7f3] transition hover:opacity-92 disabled:cursor-not-allowed disabled:opacity-60"
+                className="copilot-gradient-button rounded-full px-4 py-2 text-sm font-medium text-[color:#fff7f3] transition hover:opacity-92 disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={sendDisabled}
                 onClick={() => void sendQuestion(draft)}
                 type="button"
@@ -689,7 +826,7 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
           >
             {followUps.slice(0, 3).map((prompt) => (
               <button
-                className="chat-kicker-chip rounded-full px-3 py-2 text-xs transition hover:text-[color:var(--text-strong)]"
+                className="chat-kicker-chip rounded-full px-3.5 py-2 text-[11px] transition hover:text-[color:var(--text-strong)]"
                 key={prompt}
                 onClick={() => setDraft(prompt)}
                 type="button"
@@ -705,7 +842,7 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
 
   return (
     <main className="chat-page-shell min-h-[100dvh] overflow-hidden lg:h-dvh">
-      <section className="relative z-10 grid h-full min-h-0 lg:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[308px_minmax(0,1fr)]">
+      <section className="relative z-10 grid h-full min-h-0 lg:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[240px_minmax(0,1fr)]">
         <aside className="chat-sidebar-shell order-2 flex min-h-0 flex-col border-t border-[color:rgba(255,255,255,0.06)] lg:order-1 lg:h-full lg:border-r lg:border-t-0">
           <div className="flex items-center justify-between border-b border-[color:rgba(255,255,255,0.08)] px-5 py-4">
             <div>
@@ -826,68 +963,25 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
           ) : null}
 
           {hasConversation ? (
-            <div className="border-b border-[color:rgba(67,57,47,0.08)] px-5 py-4 lg:px-6">
-              <div className="relative z-10 mx-auto flex w-full max-w-[1180px] flex-col gap-4">
-                <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="border-b border-[color:rgba(67,57,47,0.08)] px-5 py-3 lg:px-7">
+              <div className="relative z-10 mx-auto flex w-full max-w-[1440px] flex-col gap-2">
+                <div className="flex flex-col gap-2.5 lg:flex-row lg:items-end lg:justify-between">
                   <div className="min-w-0">
                     <p className="eyebrow">Conversación</p>
                     <h1
-                      className="mt-2 text-[clamp(1.65rem,2.6vw,2.35rem)] font-semibold tracking-[-0.05em] text-[color:var(--text-strong)]"
+                      className="mt-1.5 max-w-[24ch] text-[clamp(1.2rem,1.9vw,1.7rem)] font-semibold tracking-[-0.05em] text-[color:var(--text-strong)]"
                       style={{ fontFamily: "var(--font-heading), serif" }}
                     >
-                      {headerTitle}
+                      {displayHeaderTitle}
                     </h1>
-                    <p className="mt-2 max-w-3xl text-sm leading-6 text-[color:var(--text-soft)]">
+                    <p className="mt-1 max-w-4xl text-[12px] leading-5 text-[color:var(--text-soft)]">
                       {headerDetail}
                     </p>
                   </div>
 
-                  <span className="chat-kicker-chip rounded-full px-3 py-1.5 text-[11px] uppercase tracking-[0.16em]">
+                  <p className="text-[10px] uppercase tracking-[0.18em] text-[color:rgba(67,58,49,0.52)]">
                     {heroSubtitle}
-                  </span>
-                </div>
-
-                <div className="w-full">
-                  <ChatSettingsPanel
-                    allowHypotheses={allowHypotheses}
-                    allowWebResearch={allowWebResearch}
-                    backendHealth={backendHealth}
-                    compact
-                    externalContext={externalContext}
-                    llmReady={llmReady}
-                    notice={notice}
-                    onAllowHypothesesChange={(value) => {
-                      llmToggleTouched.current = true;
-                      setAllowHypotheses(value);
-                      if (value && !useLlm) {
-                        setUseLlm(true);
-                      }
-                      if (!value) {
-                        setAllowWebResearch(false);
-                      }
-                    }}
-                    onAllowWebResearchChange={(value) => {
-                      llmToggleTouched.current = true;
-                      setAllowWebResearch(value);
-                      if (value && !useLlm) {
-                        setUseLlm(true);
-                      }
-                      if (value && !allowHypotheses) {
-                        setAllowHypotheses(true);
-                      }
-                    }}
-                    onExternalContextChange={setExternalContext}
-                    onUseLlmChange={(value) => {
-                      llmToggleTouched.current = true;
-                      setUseLlm(value);
-                      if (!value) {
-                        setAllowHypotheses(false);
-                        setAllowWebResearch(false);
-                      }
-                    }}
-                    pinnedCount={pinnedCount}
-                    useLlm={useLlm}
-                  />
+                  </p>
                 </div>
               </div>
             </div>
@@ -915,7 +1009,7 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
             <div
               className={
                 hasConversation
-                  ? "mx-auto w-full max-w-[1180px] space-y-7 px-5 py-7 lg:px-6"
+                  ? "mx-auto w-full max-w-[1440px] space-y-5 px-5 py-5 sm:px-6 lg:px-7 xl:px-8"
                   : "mx-auto flex min-h-full w-full max-w-5xl items-center justify-center px-6 py-6"
               }
             >
@@ -932,19 +1026,19 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
                   return (
                     <article className="w-full" key={turn.id}>
                       {turn.role === "user" ? (
-                        <div className="copilot-message-user ml-auto max-w-[min(84%,760px)] rounded-[28px] px-5 py-4">
-                          <p className="text-sm leading-7 text-[color:#fff8f4]">
+                        <div className="copilot-message-user ml-auto max-w-[min(86%,980px)] rounded-[24px] px-4 py-3.5">
+                          <p className="text-[13px] leading-6 text-[color:#fff8f4]">
                             {turn.text}
                           </p>
                         </div>
                       ) : (
-                        <div className="copilot-message-assistant w-full rounded-[32px] px-5 py-5 backdrop-blur sm:px-6 sm:py-6">
-                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="copilot-message-assistant w-full rounded-[28px] px-4 py-4 backdrop-blur sm:px-5 sm:py-5">
+                          <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between">
                             <div>
                               <p className="text-[11px] uppercase tracking-[0.18em] text-[color:rgba(108,83,67,0.62)]">
                                 {assistantEyebrow(payload)}
                               </p>
-                              <p className="mt-2 text-sm text-[color:var(--copilot-text-soft)]">
+                              <p className="mt-1.5 text-[12px] text-[color:var(--copilot-text-soft)]">
                                 {assistantSubline(payload)}
                               </p>
                             </div>
@@ -952,15 +1046,15 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
                             {payload ? (
                               <div className="flex flex-wrap gap-2 sm:justify-end">
                                 <span
-                                  className={`rounded-full border px-3 py-1 text-xs ${coverageChip(payload.confidence)}`}
+                                  className={`rounded-full border px-2.5 py-1 text-[11px] ${coverageChip(payload.confidence)}`}
                                 >
                                   {confidenceLabel(payload.confidence)}
                                 </span>
-                                <span className="copilot-soft-chip rounded-full px-3 py-1 text-xs">
+                                <span className="copilot-soft-chip rounded-full px-2.5 py-1 text-[11px]">
                                   {modeLabel(payload.answer_mode)}
                                 </span>
                                 <button
-                                  className="copilot-outline-button rounded-full px-3 py-1 text-xs text-[color:#8a4d67] transition"
+                                  className="copilot-outline-button rounded-full px-2.5 py-1 text-[11px] text-[color:#8a4d67] transition"
                                   onClick={() => pinNote(payload, sourceQuestion)}
                                   type="button"
                                 >
@@ -970,10 +1064,10 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
                             ) : null}
                           </div>
 
-                          <div className="mt-5 space-y-4">
+                          <div className="mt-4 space-y-3">
                             {answerParagraphs.map((paragraph, paragraphIndex) => (
                               <p
-                                className="text-[15px] leading-8 text-[color:var(--copilot-text)]"
+                                className="text-[13px] leading-6 text-[color:var(--copilot-text)]"
                                 key={`${turn.id}-paragraph-${paragraphIndex}`}
                               >
                                 {paragraph}
@@ -982,19 +1076,19 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
                           </div>
 
                           {evidenceHighlights.length ? (
-                            <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                            <div className="mt-4 grid gap-2.5 md:grid-cols-2 xl:grid-cols-3">
                               {evidenceHighlights.map((item) => (
                                 <div
-                                  className="rounded-[20px] border border-[color:rgba(67,57,47,0.08)] bg-[color:rgba(255,255,255,0.58)] p-3"
+                                  className="rounded-[18px] border border-[color:rgba(67,57,47,0.08)] bg-[color:rgba(255,255,255,0.58)] p-2.5"
                                   key={`${item.label}-${item.value}`}
                                 >
                                   <p className="text-[11px] uppercase tracking-[0.16em] text-[color:rgba(108,83,67,0.54)]">
                                     {item.label}
                                   </p>
-                                  <p className="mt-2 text-sm font-medium leading-6 text-[color:var(--copilot-text)]">
+                                  <p className="mt-1.5 text-[13px] font-medium leading-5 text-[color:var(--copilot-text)]">
                                     {item.value}
                                   </p>
-                                  <p className="mt-1 text-[11px] text-[color:var(--copilot-text-soft)]">
+                                  <p className="mt-1 text-[10px] text-[color:var(--copilot-text-soft)]">
                                     {sourceLabel(item.source)}
                                   </p>
                                 </div>
@@ -1004,9 +1098,9 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
 
                           {asArray(payload?.artifacts).map((artifact, artifactIndex) => (
                             <div key={`${artifact.kind}-${artifactIndex}-${artifact.title}`}>
-                              <div className="mt-5 flex justify-end">
+                              <div className="mt-4 flex justify-end">
                                 <button
-                                  className="copilot-outline-button rounded-full px-3 py-2 text-xs text-[color:#8a4d67] transition"
+                                  className="copilot-outline-button rounded-full px-2.5 py-1.5 text-[11px] text-[color:#8a4d67] transition"
                                   onClick={() => payload && pinArtifact(payload, artifactIndex, sourceQuestion)}
                                   type="button"
                                 >
@@ -1020,13 +1114,13 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
                           {payload?.warnings.length ? (
                             <div
                               className={[
-                                "mt-5 rounded-[20px] px-4 py-3 text-sm leading-6",
+                                "mt-4 rounded-[18px] px-3.5 py-2.5 text-[13px] leading-6",
                                 payload.answer_mode === "deterministic_fallback"
                                   ? "border border-[color:rgba(176,108,31,0.18)] bg-[color:rgba(255,206,115,0.14)] text-[color:#7c5117]"
                                   : "border border-[color:rgba(166,63,116,0.18)] bg-[color:rgba(234,77,161,0.1)] text-[color:#7f3156]",
                               ].join(" ")}
                             >
-                              <p className="text-sm font-medium">
+                              <p className="text-[13px] font-medium">
                                 {payload.answer_mode === "deterministic_fallback"
                                   ? "Sigue en datos"
                                   : "Use con cautela"}
@@ -1040,8 +1134,8 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
                           ) : null}
 
                           {payload?.hypotheses.length ? (
-                            <div className="mt-5 rounded-[20px] border border-[color:rgba(176,108,31,0.18)] bg-[color:rgba(255,206,115,0.14)] px-4 py-3 text-sm leading-6 text-[color:#7c5117]">
-                              <p className="text-sm font-medium">Hipótesis</p>
+                            <div className="mt-4 rounded-[18px] border border-[color:rgba(176,108,31,0.18)] bg-[color:rgba(255,206,115,0.14)] px-3.5 py-2.5 text-[13px] leading-6 text-[color:#7c5117]">
+                              <p className="text-[13px] font-medium">Hipótesis</p>
                               <div className="mt-2 space-y-2">
                                 {asArray(payload.hypotheses).map((item) => (
                                   <p key={item}>{item}</p>
@@ -1055,7 +1149,7 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
                                   <div className="mt-2 space-y-2">
                                     {asArray(payload.web_sources).slice(0, 4).map((source) => (
                                       <a
-                                        className="block text-sm underline decoration-[color:rgba(176,108,31,0.34)] underline-offset-4 hover:text-[color:#5f3b12]"
+                                        className="block text-[13px] underline decoration-[color:rgba(176,108,31,0.34)] underline-offset-4 hover:text-[color:#5f3b12]"
                                         href={source.url}
                                         key={source.url}
                                         rel="noreferrer"
@@ -1071,14 +1165,14 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
                           ) : null}
 
                           {payload?.follow_up_questions.length ? (
-                            <div className="mt-5">
+                            <div className="mt-4">
                               <p className="text-[11px] uppercase tracking-[0.16em] text-[color:rgba(108,83,67,0.54)]">
                                 Siguiente paso
                               </p>
-                              <div className="mt-3 flex flex-wrap gap-2">
+                              <div className="mt-2.5 flex flex-wrap gap-2">
                                 {asArray(payload.follow_up_questions).slice(0, 3).map((prompt) => (
                                   <button
-                                    className="copilot-soft-chip rounded-full px-3 py-2 text-xs transition hover:border-[color:rgba(255,255,255,0.16)] hover:text-[color:#fff7f2]"
+                                    className="copilot-soft-chip rounded-full px-3 py-1.5 text-[11px] transition hover:border-[color:rgba(255,255,255,0.16)] hover:text-[color:#fff7f2]"
                                     key={prompt}
                                     onClick={() => setDraft(prompt)}
                                     type="button"
@@ -1091,18 +1185,18 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
                           ) : null}
 
                           {payload ? (
-                            <details className="mt-5 rounded-[22px] border border-[color:rgba(67,57,47,0.08)] bg-[color:rgba(255,255,255,0.58)] px-4 py-3">
-                              <summary className="cursor-pointer list-none text-sm font-medium text-[color:var(--copilot-text)]">
+                            <details className="mt-4 rounded-[20px] border border-[color:rgba(67,57,47,0.08)] bg-[color:rgba(255,255,255,0.58)] px-3.5 py-2.5">
+                              <summary className="cursor-pointer list-none text-[13px] font-medium text-[color:var(--copilot-text)]">
                                 Detrás de esta respuesta
                               </summary>
 
-                              <div className="mt-4 space-y-4 text-sm text-[color:var(--copilot-text-soft)]">
+                              <div className="mt-3.5 space-y-3.5 text-[13px] text-[color:var(--copilot-text-soft)]">
                                 {asArray(payload.analysis_steps).length ? (
-                                  <div className="rounded-[18px] border border-[color:rgba(67,57,47,0.08)] bg-[color:rgba(255,255,255,0.46)] px-4 py-3">
-                                    <p className="text-sm font-medium text-[color:var(--copilot-text)]">
+                                  <div className="rounded-[16px] border border-[color:rgba(67,57,47,0.08)] bg-[color:rgba(255,255,255,0.46)] px-3.5 py-2.5">
+                                    <p className="text-[13px] font-medium text-[color:var(--copilot-text)]">
                                       Qué revisó el asistente
                                     </p>
-                                    <div className="mt-3 space-y-2 text-sm leading-6">
+                                    <div className="mt-2.5 space-y-1.5 text-[13px] leading-6">
                                       {asArray(payload.analysis_steps).map((item) => (
                                         <div className="flex gap-3" key={item}>
                                           <span className="pt-[2px] text-[color:rgba(108,83,67,0.52)]">
@@ -1115,13 +1209,13 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
                                   </div>
                                 ) : null}
 
-                                <div className="grid gap-3 sm:grid-cols-2">
+                                <div className="grid gap-2.5 sm:grid-cols-2">
                                   {asArray(payload.evidence).map((item) => (
                                     <div
-                                      className="rounded-[18px] border border-[color:rgba(67,57,47,0.08)] bg-[color:rgba(255,255,255,0.46)] px-4 py-3"
+                                      className="rounded-[16px] border border-[color:rgba(67,57,47,0.08)] bg-[color:rgba(255,255,255,0.46)] px-3.5 py-2.5"
                                       key={`${item.label}-${item.value}-detail`}
                                     >
-                                      <p className="text-sm font-medium text-[color:var(--copilot-text)]">
+                                      <p className="text-[13px] font-medium text-[color:var(--copilot-text)]">
                                         {item.label}
                                       </p>
                                       <p className="mt-1 leading-6">{item.value}</p>
@@ -1160,7 +1254,7 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
                 })
               ) : (
                 <div className="chat-empty-stage flex w-full items-center justify-center">
-                  <div className="relative mx-auto flex w-full max-w-[980px] -translate-y-6 flex-col items-center text-center xl:-translate-y-8">
+                  <div className="relative mx-auto flex w-full max-w-[1040px] -translate-y-6 flex-col items-center text-center xl:-translate-y-8">
                     <div
                       className={[
                         "chat-particle-orb transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]",
@@ -1224,54 +1318,12 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
                       </div>
                     </div>
 
-                    <div className="mt-3 w-full max-w-[760px]">
-                      <ChatSettingsPanel
-                        allowHypotheses={allowHypotheses}
-                        allowWebResearch={allowWebResearch}
-                        backendHealth={backendHealth}
-                        compact
-                        externalContext={externalContext}
-                        llmReady={llmReady}
-                        notice={notice}
-                        onAllowHypothesesChange={(value) => {
-                          llmToggleTouched.current = true;
-                          setAllowHypotheses(value);
-                          if (value && !useLlm) {
-                            setUseLlm(true);
-                          }
-                          if (!value) {
-                            setAllowWebResearch(false);
-                          }
-                        }}
-                        onAllowWebResearchChange={(value) => {
-                          llmToggleTouched.current = true;
-                          setAllowWebResearch(value);
-                          if (value && !useLlm) {
-                            setUseLlm(true);
-                          }
-                          if (value && !allowHypotheses) {
-                            setAllowHypotheses(true);
-                          }
-                        }}
-                        onExternalContextChange={setExternalContext}
-                        onUseLlmChange={(value) => {
-                          llmToggleTouched.current = true;
-                          setUseLlm(value);
-                          if (!value) {
-                            setAllowHypotheses(false);
-                            setAllowWebResearch(false);
-                          }
-                        }}
-                        pinnedCount={pinnedCount}
-                        useLlm={useLlm}
-                      />
-                    </div>
                   </div>
                 </div>
               )}
 
               {isSubmitting ? (
-                <div className="max-w-[94%]">
+                <div className="mx-auto w-full max-w-[1440px]">
                   <ChatThinkingCore
                     active
                     compact
@@ -1300,8 +1352,8 @@ export function ChatWorkspace({ initialQuestion }: ChatWorkspaceProps) {
           </div>
 
           {hasConversation ? (
-            <div className="border-t border-[color:rgba(67,57,47,0.08)] px-4 py-4 sm:px-5 lg:px-6">
-              <div className="mx-auto w-full max-w-[1180px]">{renderComposer()}</div>
+            <div className="border-t border-[color:rgba(67,57,47,0.08)] px-4 py-3 sm:px-6 lg:px-7">
+              <div className="mx-auto w-full max-w-[1440px]">{renderComposer()}</div>
             </div>
           ) : null}
         </section>

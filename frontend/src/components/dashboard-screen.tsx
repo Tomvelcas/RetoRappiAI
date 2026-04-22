@@ -22,7 +22,7 @@ import {
   removePinnedWidget,
   saveDashboardLayouts,
 } from "@/lib/dashboard-store";
-import { confidenceLabel, formatLongDate, formatShortDate, mapKpiToUi } from "@/lib/format";
+import { formatLongDate, formatShortDate, mapKpiToUi } from "@/lib/format";
 
 import { DashboardCanvas, type DashboardCanvasRenderMeta } from "@/components/dashboard-canvas";
 import { DashboardStaggeredMenu } from "@/components/dashboard-staggered-menu";
@@ -68,48 +68,48 @@ type BuiltInWidget = {
 const builtInWidgets: BuiltInWidget[] = [
   {
     accent: "cyan",
-    defaultLayout: { x: 0, y: 0, w: 8, h: 5, visible: true },
+    defaultLayout: { x: 0, y: 0, w: 6, h: 6, visible: true },
     description: "Serie diaria con lectura del rango y selección por fecha.",
     id: "signal-timeline",
-    minH: 5,
+    minH: 6,
     minW: 5,
     title: "Serie diaria",
   },
   {
-    accent: "amber",
-    defaultLayout: { x: 8, y: 0, w: 4, h: 5, visible: true },
-    description: "Resumen puntual del día seleccionado con horas clave y respaldo.",
-    id: "day-spotlight",
-    minH: 4,
-    minW: 3,
-    title: "Fecha abierta",
+    accent: "rose",
+    defaultLayout: { x: 6, y: 0, w: 6, h: 6, visible: true },
+    description: "Eventos fuera de patrón priorizados por magnitud y confianza.",
+    id: "anomaly-pulse",
+    minH: 6,
+    minW: 5,
+    title: "Anomalías",
   },
   {
     accent: "default",
-    defaultLayout: { x: 0, y: 5, w: 4, h: 4, visible: true },
+    defaultLayout: { x: 0, y: 6, w: 8, h: 5, visible: true },
     description: "Perfil horario para detectar horas pico y horas bajas.",
     id: "intraday-rhythm",
-    minH: 4,
+    minH: 5,
     minW: 3,
     title: "Patrón horario",
   },
   {
-    accent: "rose",
-    defaultLayout: { x: 4, y: 5, w: 4, h: 4, visible: true },
-    description: "Eventos fuera de patrón priorizados por magnitud y confianza.",
-    id: "anomaly-pulse",
-    minH: 4,
+    accent: "amber",
+    defaultLayout: { x: 8, y: 6, w: 4, h: 5, visible: true },
+    description: "Cobertura, vacíos y soporte del rango activo.",
+    id: "quality-lens",
+    minH: 5,
     minW: 3,
-    title: "Anomalías",
+    title: "Calidad",
   },
   {
     accent: "amber",
-    defaultLayout: { x: 8, y: 5, w: 4, h: 4, visible: true },
-    description: "Cobertura, vacíos y soporte del rango activo.",
-    id: "quality-lens",
-    minH: 4,
-    minW: 3,
-    title: "Calidad",
+    defaultLayout: { x: 0, y: 11, w: 12, h: 6, visible: true },
+    description: "Detalle operativo del día abierto, arrancando por el día más frágil del rango.",
+    id: "day-spotlight",
+    minH: 6,
+    minW: 4,
+    title: "Detalle del día",
   },
 ];
 
@@ -137,7 +137,11 @@ function resolveSelectedDate(
     return currentSelectedDate;
   }
 
-  return overview.trend.at(-1)?.date ?? null;
+  const weakestCoverageDay = [...overview.trend].sort(
+    (left, right) => left.coverage_ratio - right.coverage_ratio || left.date.localeCompare(right.date),
+  )[0];
+
+  return weakestCoverageDay?.date ?? overview.trend.at(-1)?.date ?? null;
 }
 
 function buildPinnedDefaultLayout(index: number): DashboardWidgetLayout {
@@ -146,7 +150,7 @@ function buildPinnedDefaultLayout(index: number): DashboardWidgetLayout {
 
   return {
     x: column === 0 ? 0 : 6,
-    y: 9 + row * 5,
+    y: 17 + row * 5,
     w: 6,
     h: 5,
     visible: true,
@@ -201,11 +205,11 @@ function resolveKpiTone(
     return "cyan";
   }
 
-  if (key === "anomaly_count") {
+  if (key === "strong_anomaly_count" || key === "anomaly_count") {
     return "rose";
   }
 
-  if (key === "strongest_hour" || key === "weakest_hour") {
+  if (key === "peak_hour" || key === "strongest_hour" || key === "weakest_hour") {
     return "amber";
   }
 
@@ -662,25 +666,44 @@ export function DashboardScreen() {
                 {briefing.summary}
               </p>
 
-              <div className="mt-4 flex flex-wrap gap-2">
-                <span className="copilot-pill rounded-full px-3 py-1.5 text-[11px] uppercase tracking-[0.16em]">
-                  confianza {confidenceLabel(briefing.confidence)}
-                </span>
-                <span className="copilot-pill rounded-full px-3 py-1.5 text-[11px] uppercase tracking-[0.16em]">
-                  pico {briefing.strongest_hour.label}
-                </span>
-                <span className="copilot-pill rounded-full px-3 py-1.5 text-[11px] uppercase tracking-[0.16em]">
-                  baja {briefing.weakest_hour.label}
-                </span>
-              </div>
+              <p className="mt-4 text-sm leading-6 text-[color:var(--text-soft)]">
+                Fecha priorizada por su fragilidad dentro del rango. Puede cambiarla desde la serie
+                diaria o enfocar el rango con el panel de filtros.
+              </p>
 
               <div className="mt-5 flex flex-wrap gap-2">
                 <button
-                  className="copilot-outline-button rounded-full px-4 py-2 text-sm text-[color:var(--text-soft)] transition hover:text-[color:var(--text-strong)]"
+                  className="copilot-outline-button inline-flex items-center gap-2 rounded-full border border-[color:rgba(255,122,31,0.26)] bg-[linear-gradient(135deg,rgba(255,184,132,0.18),rgba(255,122,31,0.12)_44%,rgba(20,7,3,0.78)_100%)] px-4 py-2.5 text-sm font-medium text-[color:#fff4ec] shadow-[0_18px_34px_rgba(20,7,3,0.22),0_0_18px_rgba(255,122,31,0.08)] transition hover:border-[color:rgba(255,153,74,0.38)] hover:text-white"
                   onClick={() => setPanelCollapsed((current) => !current)}
                   type="button"
                 >
-                  {panelCollapsed ? "Filtros" : "Cerrar panel"}
+                  <svg
+                    aria-hidden="true"
+                    className="size-4 shrink-0"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M4 6h16"
+                      stroke="currentColor"
+                      strokeLinecap="round"
+                      strokeWidth="1.8"
+                    />
+                    <path
+                      d="M7 12h10"
+                      stroke="currentColor"
+                      strokeLinecap="round"
+                      strokeWidth="1.8"
+                    />
+                    <path
+                      d="M10 18h4"
+                      stroke="currentColor"
+                      strokeLinecap="round"
+                      strokeWidth="1.8"
+                    />
+                  </svg>
+                  {panelCollapsed ? "Abrir filtros" : "Ocultar filtros"}
                 </button>
                 <Link
                   className="copilot-gradient-button rounded-full px-4 py-2 text-sm font-medium text-[color:#fff7f3] transition"

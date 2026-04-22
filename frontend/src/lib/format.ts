@@ -64,6 +64,22 @@ export function confidenceLabel(value: Confidence | null): string {
   return "baja";
 }
 
+export function supportStatusLabel(value: Confidence | null): string {
+  if (!value) {
+    return "estable";
+  }
+
+  if (value === "high") {
+    return "bien cubierto";
+  }
+
+  if (value === "medium") {
+    return "con soporte medio";
+  }
+
+  return "frágil";
+}
+
 export function coverageTone(flag: CoverageFlag): string {
   if (flag === "high") {
     return "text-[color:var(--signal-cyan)]";
@@ -88,19 +104,36 @@ export function coverageChip(flag: CoverageFlag): string {
   return "border-[color:rgba(255,121,137,0.3)] bg-[color:rgba(255,121,137,0.08)] text-[color:var(--signal-rose)]";
 }
 
+function translateMetricCaption(kpi: KPI): string {
+  const translatedDelta = kpi.change_label
+    ?.replace("vs. prior comparable period", "frente al período comparable anterior")
+    .replace("vs prior comparable period", "frente al período comparable anterior");
+
+  const captionMap: Record<string, string> = {
+    mean_signal: "Promedio del rango seleccionado.",
+    coverage_ratio: "Qué tanto soporte tienen los datos del rango.",
+    peak_hour: "Franja donde la señal suele verse más fuerte.",
+    strong_anomaly_count: "Eventos atípicos con respaldo suficiente para priorizar.",
+  };
+
+  return translatedDelta ?? captionMap[kpi.key] ?? kpi.context;
+}
+
 export function mapKpiToUi(kpi: KPI): { label: string; value: string; caption: string } {
   const labelMap: Record<string, string> = {
-    mean_signal: "Nivel típico",
+    mean_signal: "Nivel promedio",
     coverage_ratio: "Cobertura",
-    strongest_hour: "Hora pico",
-    weakest_hour: "Hora baja",
-    anomaly_count: "Anomalías",
+    peak_hour: "Hora más activa",
+    strongest_hour: "Hora más alta",
+    weakest_hour: "Hora más baja",
+    strong_anomaly_count: "Alertas clave",
+    anomaly_count: "Alertas clave",
   };
 
   return {
     label: labelMap[kpi.key] ?? kpi.label,
     value: kpi.formatted_value,
-    caption: kpi.change_label ?? kpi.context,
+    caption: translateMetricCaption(kpi),
   };
 }
 

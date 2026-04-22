@@ -68,15 +68,24 @@ def format_hour_label(hour: int) -> str:
     return f"{hour:02d}:00"
 
 
+def format_confidence_label(value: Literal["high", "medium", "low"]) -> str:
+    """Translate internal confidence flags into Spanish UI copy."""
+    if value == "high":
+        return "alta"
+    if value == "medium":
+        return "media"
+    return "baja"
+
+
 def format_delta_label(current: float, previous: float | None, suffix: str = "") -> str | None:
     """Build a delta label against a previous comparable period."""
     if previous is None:
         return None
     delta = current - previous
     if abs(previous) < 1e-9:
-        return f"{delta:+.0f}{suffix} vs. prior comparable period"
+        return f"{delta:+.0f}{suffix} frente al período comparable anterior"
     pct_delta = (delta / previous) * 100
-    return f"{pct_delta:+.1f}% vs. prior comparable period"
+    return f"{pct_delta:+.1f}% frente al período comparable anterior"
 
 
 def _hourly_coverage_ratio(row: HourlyMetric) -> float:
@@ -349,22 +358,23 @@ def build_overview_snapshot(
     )
 
     notes = [
-        "All metrics come from deterministic calculations over data/processed/.",
+        "Todas las métricas salen de cálculos determinísticos sobre data/processed/.",
         (
-            "Signal semantics remain intentionally neutral until business validation "
-            "confirms the exact metric meaning."
+            "La interpretación del indicador se mantiene neutral hasta que negocio "
+            "confirme el significado exacto de la señal."
         ),
     ]
     selected_coverage_flag = coverage_flag(current_coverage_ratio)
     if selected_coverage_flag != "high":
         notes.append(
             (
-                f"Coverage for the selected range is {selected_coverage_flag}; "
-                "anomaly and comparison storytelling should stay cautious."
+                "La cobertura del rango seleccionado es "
+                f"{format_confidence_label(selected_coverage_flag)}; "
+                "conviene leer anomalías y comparaciones con cautela."
             )
         )
     if not comparison_rows:
-        notes.append("No prior comparable period was available for delta calculations.")
+        notes.append("No hubo un período comparable anterior para calcular variaciones.")
 
     return {
         "generated_at": datetime.now(timezone.utc),
@@ -525,10 +535,10 @@ def build_coverage_extremes_snapshot(
             reverse=True,
         ),
         "notes": [
-            "Coverage is computed from daily observed points over expected points.",
+            "La cobertura se calcula como puntos diarios observados sobre puntos esperados.",
             (
-                "Low coverage reflects data completeness, not necessarily a business "
-                "incident in the underlying signal."
+                "Una cobertura baja habla de completitud del dato y no necesariamente de un "
+                "incidente operativo en la señal."
             ),
         ],
     }
@@ -573,42 +583,43 @@ def build_day_briefing_snapshot(
         delta_vs_prior_day = day_row.mean_value - prior_day.mean_value
         delta_vs_prior_day_label = format_delta_label(day_row.mean_value, prior_day.mean_value)
 
-    headline = "Stable observation day"
+    headline = "Día observado estable"
     if confidence == "low":
-        headline = "Low-coverage observation day"
+        headline = "Día con cobertura frágil"
     elif anomalies:
-        headline = "Anomalous observation day"
+        headline = "Día con comportamiento atípico"
 
     strongest_hour_label = str(strongest_hour["label"])
     weakest_hour_label = str(weakest_hour["label"])
     summary = (
-        f"{day_row.date.isoformat()} closed with mean signal {format_signal(day_row.mean_value)} "
-        f"and {format_percent(coverage)} observed coverage. The strongest hour was "
-        f"{strongest_hour_label} and the weakest hour was {weakest_hour_label}."
+        f"{day_row.date.isoformat()} cerró con un nivel medio de "
+        f"{format_signal(day_row.mean_value)} "
+        f"y una cobertura observada de {format_percent(coverage)}. La franja más fuerte fue "
+        f"{strongest_hour_label} y la más débil {weakest_hour_label}."
     )
     if anomalies:
         top_anomaly = anomalies[0]
         summary = (
-            f"{summary} The top hourly deviation appeared around "
-            f"{format_hour_label(int(top_anomaly['hour']))} with {top_anomaly['confidence']} "
-            "confidence."
+            f"{summary} La desviación horaria más clara apareció cerca de "
+            f"{format_hour_label(int(top_anomaly['hour']))} con confianza "
+            f"{format_confidence_label(str(top_anomaly['confidence']))}."
         )
 
     highlights = [
-        f"Coverage: {format_percent(coverage)} ({confidence}).",
+        f"Cobertura: {format_percent(coverage)} ({format_confidence_label(confidence)}).",
         (
-            f"Intraday peak: {strongest_hour_label} "
+            f"Hora más fuerte: {strongest_hour_label} "
             f"({format_signal(float(strongest_hour['mean_signal']))})."
         ),
         (
-            f"Intraday low: {weakest_hour_label} "
+            f"Hora más débil: {weakest_hour_label} "
             f"({format_signal(float(weakest_hour['mean_signal']))})."
         ),
     ]
     if anomalies:
         highlights.append(
             (
-                f"Top anomaly: {anomalies[0]['date']} "
+                f"Anomalía principal: {anomalies[0]['date']} "
                 f"{format_hour_label(int(anomalies[0]['hour']))} "
                 f"| z={float(anomalies[0]['zscore']):.2f}."
             )
@@ -617,20 +628,20 @@ def build_day_briefing_snapshot(
     cautions: list[str] = []
     if confidence != "high":
         cautions.append(
-            "Coverage is not high for this day, so interpretation should stay cautious."
+            "La cobertura de este día no es alta, así que la lectura debe tomarse con cautela."
         )
     if anomalies and anomalies[0]["confidence"] != "high":
         cautions.append(
-            "The strongest anomaly is not high-confidence, so it should be treated as a signal "
-            "for review rather than a confirmed event."
+            "La anomalía principal no tiene respaldo alto, así que conviene leerla como una "
+            "señal para revisar y no como un hecho confirmado."
         )
     if prior_day is None:
-        cautions.append("No prior observed day was available for same-metric comparison.")
+        cautions.append("No hay un día observado anterior para comparar esta misma métrica.")
 
     suggested_questions = [
-        "How does this day compare with the previous observed day?",
-        "Was the low-coverage behavior aligned with hourly anomalies?",
-        "What were the lowest-coverage days in the full range?",
+        "¿Cómo se compara este día con el día observado anterior?",
+        "¿La cobertura baja coincide con anomalías horarias?",
+        "¿Cuáles fueron los días con menor cobertura en todo el rango?",
     ]
 
     return {

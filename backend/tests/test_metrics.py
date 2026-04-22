@@ -109,8 +109,9 @@ def test_day_briefing_returns_single_day_narrative(client: TestClient) -> None:
 
     assert payload["briefing"]["target_date"] == "2026-02-10"
     assert payload["briefing"]["summary"]
+    assert payload["briefing"]["headline"].startswith("Día")
     assert payload["briefing"]["strongest_hour"]["label"]
-    assert payload["briefing"]["suggested_questions"]
+    assert payload["briefing"]["suggested_questions"][0].startswith("¿")
 
 
 def test_metrics_not_found_errors_are_translated_to_404(

@@ -16,6 +16,7 @@ import {
   mapKpiToUi,
   modeLabel,
   sourceLabel,
+  supportStatusLabel,
 } from "@/lib/format";
 
 describe("format helpers", () => {
@@ -30,6 +31,8 @@ describe("format helpers", () => {
   it("maps status labels and visual tokens", () => {
     expect(confidenceLabel(null)).toBe("estable");
     expect(confidenceLabel("high")).toBe("alta");
+    expect(supportStatusLabel("high")).toBe("bien cubierto");
+    expect(supportStatusLabel("low")).toBe("frágil");
     expect(coverageTone("high")).toContain("--signal-cyan");
     expect(coverageChip("medium")).toContain("--signal-amber");
     expect(modeLabel("llm_enhanced")).toBe("redacción mejorada");
@@ -52,6 +55,22 @@ describe("format helpers", () => {
       label: "Cobertura",
       value: "91%",
       caption: "Stable vs previous window",
+    });
+
+    expect(
+      mapKpiToUi({
+        key: "peak_hour",
+        label: "Typical Peak Hour",
+        value: 17,
+        formatted_value: "17:00",
+        change_label: null,
+        context: "Hour with the highest average signal in the selected range.",
+        confidence: "high",
+      }),
+    ).toEqual({
+      label: "Hora más activa",
+      value: "17:00",
+      caption: "Franja donde la señal suele verse más fuerte.",
     });
 
     expect(sourceLabel("availability_hourly.csv")).toBe("ritmo horario");

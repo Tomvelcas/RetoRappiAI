@@ -37,6 +37,37 @@ const presetLabels: Record<DashboardFilterPreset, string> = {
   fragile: "Más frágil",
 };
 
+function FilterIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="size-4 shrink-0"
+      fill="none"
+      viewBox="0 0 24 24"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M4 6h16"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.8"
+      />
+      <path
+        d="M7 12h10"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.8"
+      />
+      <path
+        d="M10 18h4"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
 function VisibilitySwitch({
   checked,
   onChange,
@@ -90,11 +121,12 @@ export function DashboardStudioPanel({
     return (
       <div className="dashboard-command-bar pointer-events-auto flex items-center gap-2 rounded-[18px] px-2 py-2">
         <button
-          className="rounded-[12px] bg-[color:#fff5ee] px-4 py-2 text-sm font-medium text-[color:#2a1207] transition hover:opacity-92"
+          className="inline-flex items-center gap-2 rounded-[14px] border border-[color:rgba(255,122,31,0.24)] bg-[linear-gradient(135deg,rgba(255,212,188,0.96),rgba(255,237,227,0.92))] px-4 py-2.5 text-sm font-semibold text-[color:#2a1207] shadow-[0_18px_36px_rgba(25,20,15,0.12),0_0_18px_rgba(255,122,31,0.08)] transition hover:border-[color:rgba(255,122,31,0.34)] hover:-translate-y-[1px]"
           onClick={onToggleCollapsed}
           type="button"
         >
-          Filtros
+          <FilterIcon />
+          Filtros del tablero
         </button>
         <span className="hidden px-2 py-2 text-xs text-[color:var(--text-soft)] sm:inline-flex">
           {rangeLabel}
@@ -112,7 +144,10 @@ export function DashboardStudioPanel({
     <aside className="dashboard-command-bar pointer-events-auto rounded-[22px] px-4 py-4 shadow-[0_18px_48px_rgba(25,20,15,0.12)]">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="eyebrow">Filtros</p>
+          <p className="eyebrow inline-flex items-center gap-2">
+            <FilterIcon />
+            Filtros
+          </p>
           <p className="mt-1 text-sm text-[color:var(--text-soft)]">
             {rangeLabel} · {selectedDayLabel}
           </p>

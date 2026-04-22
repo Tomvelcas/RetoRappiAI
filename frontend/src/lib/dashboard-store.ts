@@ -21,6 +21,8 @@ export type DashboardPinnedWidget = {
 };
 
 const DASHBOARD_LAYOUTS_KEY = "dashboard-canvas-layouts";
+const DASHBOARD_LAYOUTS_VERSION_KEY = "dashboard-canvas-layouts-version";
+const DASHBOARD_LAYOUTS_VERSION = 3;
 const DASHBOARD_PINNED_WIDGETS_KEY = "dashboard-canvas-pinned-widgets";
 export const DASHBOARD_WIDGETS_EVENT = "dashboard-canvas-updated";
 
@@ -34,6 +36,11 @@ function dispatchDashboardUpdate() {
 
 export function loadDashboardLayouts(): DashboardWidgetLayouts {
   if (typeof globalThis.window === "undefined") {
+    return {};
+  }
+
+  const version = globalThis.window.localStorage.getItem(DASHBOARD_LAYOUTS_VERSION_KEY);
+  if (version !== String(DASHBOARD_LAYOUTS_VERSION)) {
     return {};
   }
 
@@ -55,6 +62,10 @@ export function saveDashboardLayouts(layouts: DashboardWidgetLayouts) {
     return;
   }
 
+  globalThis.window.localStorage.setItem(
+    DASHBOARD_LAYOUTS_VERSION_KEY,
+    String(DASHBOARD_LAYOUTS_VERSION),
+  );
   globalThis.window.localStorage.setItem(DASHBOARD_LAYOUTS_KEY, JSON.stringify(layouts));
   dispatchDashboardUpdate();
 }

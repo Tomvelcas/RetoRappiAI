@@ -66,36 +66,76 @@ Importante:
 
 ## 5. Preguntas buenas para demo
 
-### Lectura rápida
+Regla rápida:
 
-- `¿Qué pasó el 2026-02-10?`
-- `How is the signal behaving overall?`
-- `¿Qué días tuvieron la menor cobertura?`
+- deje `Hipótesis` y `Web` apagados por defecto;
+- active `Hipótesis` cuando quiera causas tentativas fuera del dataset;
+- active `Web` solo cuando quiera contrastar clima, eventos o contexto externo reciente.
 
-### Comparaciones
+### Lectura base
 
-- `Compare 2026-02-10 vs 2026-02-11.`
-- `Entrégueme conclusiones claras sobre cómo se comporta entre semana vs fines de semana la cobertura.`
-- `Cree un reporte detallado de cómo fue fluctuando la cobertura en fines de semana.`
+| Pregunta | Hipótesis | Web | Qué demuestra |
+| --- | --- | --- | --- |
+| `¿Qué pasó el 2026-02-10?` | No | No | Briefing diario grounded. |
+| `¿Qué días tuvieron la menor cobertura?` | No | No | Ranking de extremos de cobertura. |
+| `¿Qué día tuvo la mayor cobertura dentro del rango activo?` | No | No | Extremos altos del rango. |
 
-### Patrón horario
+### Comparación
 
-- `¿Qué horas suelen ser más altas?`
-- `¿Cuál fue la hora con menor cobertura el 11 de febrero?`
-- `Genéreme un gráfico de barras para mostrar cómo se comportan los horarios a lo largo del mes de febrero y su cobertura.`
+| Pregunta | Hipótesis | Web | Qué demuestra |
+| --- | --- | --- | --- |
+| `Compáreme 2026-02-10 vs 2026-02-11.` | No | No | Comparación entre fechas. |
+| `Entrégueme conclusiones claras sobre cómo se comporta entre semana vs fines de semana la cobertura.` | No | No | Modo conclusiones sobre weekday vs weekend. |
+| `Cree un reporte detallado de cómo fue fluctuando la cobertura en fines de semana.` | No | No | Modo reporte con narrativa más amplia. |
+
+### Horario
+
+| Pregunta | Hipótesis | Web | Qué demuestra |
+| --- | --- | --- | --- |
+| `¿Qué horas suelen ser más altas?` | No | No | Patrón horario del rango. |
+| `¿Cuál fue la hora con menor cobertura el 11 de febrero?` | No | No | Lookup horario puntual. |
+| `Revise si la hora más baja coincide con anomalías del rango.` | No | No | Cruce entre patrón horario y anomalías. |
 
 ### Calidad y anomalías
 
-- `How complete is the dataset between 2026-02-10 and 2026-02-10?`
-- `Revise las anomalías horarias del rango.`
-- `Podría entregarme un gráfico que compare la cobertura total de todos los días que tenemos en febrero.`
+| Pregunta | Hipótesis | Web | Qué demuestra |
+| --- | --- | --- | --- |
+| `¿Qué tan completo está el dataset entre 2026-02-10 y 2026-02-10?` | No | No | Calidad y completitud del dato. |
+| `Revise las anomalías horarias del rango.` | No | No | Resumen de anomalías con evidencia. |
+| `¿La anomalía más fuerte del rango coincide con baja cobertura?` | No | No | Cruce entre anomalías y calidad. |
+
+### Gráfico + tablero
+
+| Pregunta | Hipótesis | Web | Qué demuestra |
+| --- | --- | --- | --- |
+| `Genéreme un gráfico de barras para mostrar cómo se comportan los horarios a lo largo del mes de febrero y su cobertura.` | No | No | Artefacto horario fijable al tablero. |
+| `Podría entregarme un gráfico que compare la cobertura total de todos los días que tenemos en febrero.` | No | No | Artefacto diario fijable al tablero. |
+| `¿Podría generarme ahora una gráfica que compare el día de menor cobertura con el promedio de los demás? Así puedo saber qué tan desfasados están los datos.` | No | No | Nueva ruta `coverage_extreme_vs_average` para el día más frágil. |
+| `¿Podría generarme ahora una gráfica que compare el día de mayor cobertura con el promedio de los demás?` | No | No | Misma ruta, pero enfocada en el día más fuerte. |
+
+Si quiere contrastar extremos en una demo, hoy luce mejor esta secuencia que pedir “máximo vs mínimo” en una sola instrucción:
+
+1. `Podría entregarme un gráfico que compare la cobertura total de todos los días que tenemos en febrero.`
+2. `¿Podría generarme ahora una gráfica que compare el día de mayor cobertura con el promedio de los demás?`
+3. `¿Podría generarme ahora una gráfica que compare el día de menor cobertura con el promedio de los demás?`
+
+### Hipótesis y contexto externo
+
+| Pregunta | Hipótesis | Web | Qué demuestra |
+| --- | --- | --- | --- |
+| `El 11 de febrero es el día con menor cobertura. ¿Podría revisar y darme posibles razones externas a los datos de por qué ese día en Latinoamérica la cobertura fue baja? ¿Podríamos ver si llovió y si esa puede ser una buena razón?` | Sí | Sí | Capa opcional de hipótesis + contexto externo. |
+| `¿Podría darme hipótesis tentativas de por qué la cobertura cae más en fines de semana?` | Sí | No | Hipótesis tentativas sin salir del contexto local. |
+| `Revise el 11 de febrero y explíqueme si vale la pena buscar una causa externa o si primero debería leerlo como un problema de calidad del dato.` | Sí | No | Buen ejemplo de guardrails con lenguaje operativo. |
 
 ### Métrica y límites
 
-- `¿Qué significa synthetic_monitoring_visible_stores?`
-- `Which store had the worst availability?`
+| Pregunta | Hipótesis | Web | Qué demuestra |
+| --- | --- | --- | --- |
+| `¿Qué significa synthetic_monitoring_visible_stores?` | No | No | Definición de métrica. |
+| `¿Qué tienda tiene la peor disponibilidad?` | No | No | Rechazo explícito por falta de granularidad. |
+| `¿Qué merchant o ciudad explica la caída del 11 de febrero?` | No | No | Otro límite útil para demostrar guardrails. |
 
-La última es útil para demostrar guardrails: el sistema rechaza la granularidad inexistente en vez de inventarla.
+Las dos últimas son útiles para demostrar que el sistema rechaza granularidad inexistente en vez de inventarla.
 
 ## 6. Cómo lucir el flujo de “nuevo gráfico al dashboard”
 
@@ -111,6 +151,13 @@ Alternativa:
 1. Pregunte: `Podría entregarme un gráfico que compare la cobertura total de todos los días que tenemos en febrero.`
 2. Fije el gráfico diario.
 3. Explique que el tablero puede convivir con widgets nativos y widgets originados desde chat.
+
+Otra secuencia que hoy luce muy bien:
+
+1. Pregunte: `Podría entregarme un gráfico que compare la cobertura total de todos los días que tenemos en febrero.`
+2. Pregunte después: `¿Podría generarme ahora una gráfica que compare el día de menor cobertura con el promedio de los demás?`
+3. Fije ambos artefactos.
+4. Abra `/dashboard` y muestre cómo el tablero mezcla módulos nativos con piezas nacidas de una conversación.
 
 ## 7. Qué conviene decir en la demo
 

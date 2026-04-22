@@ -39,7 +39,7 @@ function CompactModeSwitch({
   return (
     <button
       className={[
-        "group inline-flex min-h-[68px] w-full items-center justify-between gap-4 rounded-[18px] border px-4 py-3 text-left transition",
+        "group inline-flex min-h-[44px] w-full items-center justify-between gap-3 rounded-[16px] border px-3 py-2 text-left transition",
         disabled
           ? "cursor-not-allowed border-[color:rgba(67,57,47,0.08)] bg-[color:rgba(255,255,255,0.48)] text-[color:rgba(67,58,49,0.42)]"
           : active
@@ -53,9 +53,9 @@ function CompactModeSwitch({
       type="button"
     >
       <span className="min-w-0 flex-1">
-        <span className="block text-[0.95rem] font-medium leading-5">{label}</span>
+        <span className="block text-[13px] font-medium leading-5">{label}</span>
         {caption ? (
-          <span className="mt-1 block text-[10px] uppercase tracking-[0.18em] text-[color:rgba(67,58,49,0.46)]">
+          <span className="mt-0.5 block text-[8.5px] uppercase tracking-[0.18em] text-[color:rgba(67,58,49,0.46)]">
             {caption}
           </span>
         ) : null}
@@ -63,7 +63,7 @@ function CompactModeSwitch({
 
       <span
         className={[
-          "relative inline-flex h-7 w-12 shrink-0 rounded-full border transition",
+          "relative inline-flex h-5 w-9 shrink-0 rounded-full border transition",
           active
             ? "border-[color:rgba(255,122,31,0.28)] bg-[linear-gradient(135deg,rgba(255,122,31,0.42),rgba(255,190,144,0.76))] shadow-[0_0_18px_rgba(255,122,31,0.2)]"
             : "border-[color:rgba(67,57,47,0.08)] bg-[color:rgba(67,57,47,0.08)]",
@@ -71,10 +71,10 @@ function CompactModeSwitch({
       >
         <span
           className={[
-            "absolute top-1 inline-flex size-5 rounded-full shadow-[0_8px_18px_rgba(18,14,10,0.18)] transition-all duration-300",
+            "absolute top-[2px] inline-flex size-4 rounded-full shadow-[0_8px_18px_rgba(18,14,10,0.18)] transition-all duration-300",
             active
-              ? "left-6 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(255,231,214,0.92))]"
-              : "left-1 bg-[color:#fff9f4]",
+              ? "left-[17px] bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(255,231,214,0.92))]"
+              : "left-[2px] bg-[color:#fff9f4]",
           ].join(" ")}
         />
       </span>
@@ -99,14 +99,14 @@ export function ChatSettingsPanel({
 }: ChatSettingsPanelProps) {
   if (compact) {
     return (
-      <section className="chat-inline-controls px-3 py-3 sm:px-4 sm:py-4">
+      <section className="chat-inline-controls px-3.5 py-3 sm:px-4 sm:py-3.5">
         <div className="relative z-10">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-2 rounded-full border border-[color:rgba(67,57,47,0.08)] bg-[color:rgba(255,255,255,0.78)] px-3 py-1.5 text-[11px] uppercase tracking-[0.18em] text-[color:rgba(67,58,49,0.7)]">
+                <span className="inline-flex items-center gap-2 rounded-full border border-[color:rgba(67,57,47,0.08)] bg-[color:rgba(255,255,255,0.78)] px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-[color:rgba(67,58,49,0.7)]">
                   <span className="copilot-brand-mark" />
-                  Opciones
+                  Modos del chat
                 </span>
                 <InfoTooltip
                   content="Active solo lo necesario: redacción para pulir, hipótesis para explorar y web para contrastar afuera."
@@ -116,11 +116,11 @@ export function ChatSettingsPanel({
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-[color:rgba(67,57,47,0.08)] bg-[color:rgba(255,255,255,0.72)] px-3 py-2 text-[11px] uppercase tracking-[0.16em] text-[color:rgba(67,58,49,0.62)]">
+              <span className="rounded-full border border-[color:rgba(67,57,47,0.08)] bg-[color:rgba(255,255,255,0.72)] px-2.5 py-1.5 text-[10px] uppercase tracking-[0.16em] text-[color:rgba(67,58,49,0.62)]">
                 {pinnedCount} fijados
               </span>
               <Link
-                className="rounded-full border border-[color:rgba(67,57,47,0.08)] bg-[color:rgba(255,255,255,0.74)] px-3 py-2 text-xs font-medium text-[color:rgba(42,20,8,0.82)] transition hover:border-[color:rgba(255,122,31,0.18)]"
+                className="rounded-full border border-[color:rgba(67,57,47,0.08)] bg-[color:rgba(255,255,255,0.74)] px-2.5 py-1.5 text-[11px] font-medium text-[color:rgba(42,20,8,0.82)] transition hover:border-[color:rgba(255,122,31,0.18)]"
                 href="/dashboard"
               >
                 Abrir dashboard
@@ -128,39 +128,39 @@ export function ChatSettingsPanel({
             </div>
           </div>
 
-          <div className="mt-3 grid gap-3 lg:grid-cols-3">
+          <div className="mt-2.5 grid gap-2 md:grid-cols-3">
             <CompactModeSwitch
               active={useLlm && llmReady}
-              caption="pulir"
+              caption="mejorar la respuesta"
               disabled={!llmReady}
               label="Redacción"
               onClick={() => onUseLlmChange(!(useLlm && llmReady))}
             />
             <CompactModeSwitch
               active={allowHypotheses && llmReady}
-              caption="explorar"
+              caption="posibles causas"
               disabled={!llmReady}
               label="Hipótesis"
               onClick={() => onAllowHypothesesChange(!(allowHypotheses && llmReady))}
             />
             <CompactModeSwitch
               active={allowWebResearch && llmReady}
-              caption="contrastar"
+              caption="validar afuera"
               disabled={!llmReady || !allowHypotheses}
               label="Web"
               onClick={() => onAllowWebResearchChange(!(allowWebResearch && llmReady))}
             />
           </div>
 
-          <details className="mt-3 rounded-[18px] border border-[color:rgba(67,57,47,0.08)] bg-[color:rgba(255,255,255,0.7)] px-4 py-3">
-            <summary className="cursor-pointer list-none text-sm font-medium text-[color:var(--text-strong)]">
-              Añadir contexto
+          <details className="mt-2.5 rounded-[16px] border border-[color:rgba(67,57,47,0.08)] bg-[color:rgba(255,255,255,0.72)] px-3 py-2.5">
+            <summary className="cursor-pointer list-none text-[12px] font-medium text-[color:var(--text-strong)]">
+              Contexto adicional opcional
             </summary>
-            <p className="mt-2 text-sm leading-6 text-[color:var(--text-soft)]">
+            <p className="mt-2 text-[12px] leading-5 text-[color:var(--text-soft)]">
               Úselo para promos, incidentes internos o señales externas conocidas por su equipo.
             </p>
             <textarea
-              className="glass-scroll mt-3 min-h-20 w-full resize-none rounded-[16px] border border-[color:rgba(67,57,47,0.08)] bg-[color:rgba(255,255,255,0.84)] px-3 py-3 text-sm leading-7 text-[color:var(--text-strong)] outline-none placeholder:text-[color:var(--text-dim)]"
+              className="glass-scroll mt-2.5 min-h-14 w-full resize-none rounded-[12px] border border-[color:rgba(67,57,47,0.08)] bg-[color:rgba(255,255,255,0.84)] px-3 py-2 text-[12px] leading-5 text-[color:var(--text-strong)] outline-none placeholder:text-[color:var(--text-dim)]"
               onChange={(event) => onExternalContextChange(event.target.value)}
               placeholder="Ej: Hubo una promo masiva o reportes internos de latencia."
               value={externalContext}
@@ -168,7 +168,7 @@ export function ChatSettingsPanel({
           </details>
 
           {notice ? (
-            <div className="mt-3 rounded-[18px] border border-[color:rgba(176,108,31,0.18)] bg-[color:rgba(176,108,31,0.08)] px-4 py-3 text-sm leading-6 text-[color:var(--signal-amber)]">
+            <div className="mt-2.5 rounded-[16px] border border-[color:rgba(176,108,31,0.18)] bg-[color:rgba(176,108,31,0.08)] px-3 py-2 text-[12px] leading-5 text-[color:var(--signal-amber)]">
               {notice}
             </div>
           ) : null}

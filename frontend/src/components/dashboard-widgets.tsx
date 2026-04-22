@@ -25,6 +25,7 @@ import {
   formatLongDate,
   formatShortDate,
   getIntradayExtremes,
+  supportStatusLabel,
 } from "@/lib/format";
 
 import { ChatArtifactView } from "@/components/chat-artifact";
@@ -1007,15 +1008,15 @@ export function DaySpotlightWidget({
             value={briefing.weakest_hour.label}
           />
           <MetricTile
-            caption="Comparación con la observación previa"
-            label="Delta vs previo"
+            caption="Comparación contra el día observado anterior"
+            label="Cambio vs día previo"
             tone="amber"
             value={briefing.delta_vs_prior_day_label ?? "Sin dato"}
           />
           <MetricTile
             caption={`Cobertura ${formatCoverage(briefing.coverage_ratio)}`}
-            label="Confianza del día"
-            value={confidenceLabel(briefing.confidence)}
+            label="Soporte del día"
+            value={supportStatusLabel(briefing.confidence)}
           />
         </div>
 
@@ -1091,7 +1092,7 @@ export function IntradayRhythmWidget({
         <div className="grid gap-3 sm:grid-cols-3">
           <MetricTile
             caption={strongest ? formatCompactNumber(strongest.mean_signal) : "Sin datos"}
-            label="Hora pico"
+            label="Hora más alta"
             tone="cyan"
             value={strongest ? formatHourFromNumber(strongest.hour) : "n/a"}
           />
@@ -1102,8 +1103,8 @@ export function IntradayRhythmWidget({
             value={weakest ? formatHourFromNumber(weakest.hour) : "n/a"}
           />
           <MetricTile
-            caption={`${Math.round(averagePoints)} pts / hora`}
-            label="Cobertura media"
+            caption={`${Math.round(averagePoints)} registros por hora`}
+            label="Soporte promedio"
             tone="amber"
             value={formatCoverage(averageCoverage)}
           />
@@ -1186,9 +1187,9 @@ export function AnomalyPulseWidget({
       <div className="grid gap-3">
         <div className="grid grid-cols-[minmax(0,1.3fr)_minmax(0,0.9fr)_minmax(0,1fr)_auto] gap-3 px-2 text-[11px] uppercase tracking-[0.14em] text-[color:var(--text-dim)]">
           <span>Momento</span>
-          <span>Comparación</span>
-          <span>Magnitud</span>
-          <span>Conf.</span>
+          <span>Esperado vs visto</span>
+          <span>Impacto</span>
+          <span>Prioridad</span>
         </div>
 
         {anomalies.slice(0, 5).map((item) => (
@@ -1203,13 +1204,13 @@ export function AnomalyPulseWidget({
                   {anomalyLabel(item)}
                 </p>
                 <p className="mt-1 text-xs text-[color:var(--text-soft)]">
-                  {item.n_points} puntos · {item.anomaly_direction === "high" ? "alza" : "caída"}
+                  {item.n_points} registros · {item.anomaly_direction === "high" ? "subida" : "caída"}
                 </p>
               </div>
 
               <div className="text-sm text-[color:var(--text-soft)]">
-                <p>Base {formatCompactNumber(item.baseline_mean)}</p>
-                <p className="mt-1">Obs. {formatCompactNumber(item.mean_signal)}</p>
+                <p>Esperado {formatCompactNumber(item.baseline_mean)}</p>
+                <p className="mt-1">Visto {formatCompactNumber(item.mean_signal)}</p>
               </div>
 
               <div>
@@ -1224,7 +1225,7 @@ export function AnomalyPulseWidget({
                   />
                 </div>
                 <p className="mt-2 text-xs text-[color:var(--text-soft)]">
-                  Z {item.zscore.toFixed(2)} · Delta {formatCompactNumber(item.delta_vs_hour_median)}
+                  Se desvió {formatCompactNumber(Math.abs(item.delta_vs_hour_median))} frente a lo esperado
                 </p>
               </div>
 
@@ -1290,7 +1291,7 @@ export function QualityLensWidget({
                   {formatCoverage(coverage)}
                 </p>
                 <p className={`mt-2 text-xs ${coverageTone(quality.selected_coverage_flag)}`}>
-                  {confidenceLabel(quality.selected_coverage_flag)}
+                  {supportStatusLabel(quality.selected_coverage_flag)}
                 </p>
               </div>
             </div>
@@ -1299,8 +1300,8 @@ export function QualityLensWidget({
 
         <div className="grid gap-3">
           {[
-            ["Archivos raw", String(quality.raw_file_count)],
-            ["Timestamps canónicos", formatCompactNumber(quality.canonical_timestamp_count)],
+            ["Archivos base", String(quality.raw_file_count)],
+            ["Marcas limpias", formatCompactNumber(quality.canonical_timestamp_count)],
             ["Ventanas incompletas", String(quality.incomplete_window_records)],
             ["Puntos faltantes", formatCompactNumber(quality.missing_points_full_range)],
           ].map(([label, value]) => (

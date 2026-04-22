@@ -71,5 +71,6 @@ def test_build_day_briefing_summary_defaults_to_latest_observed_day() -> None:
     summary = build_day_briefing_summary()
 
     assert summary["target_date"] == date(2026, 2, 11)
-    assert summary["headline"]
-    assert summary["suggested_questions"]
+    assert summary["headline"] == "Día con cobertura frágil"
+    assert "cobertura observada" in str(summary["summary"])
+    assert str(summary["suggested_questions"][0]).startswith("¿")
